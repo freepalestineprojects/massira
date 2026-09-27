@@ -1,0 +1,1464 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>الخريطة — مسيرة</title>
+  <link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <style>
+    :root {
+      --black:       #08090a;
+      --deep:        #0e1117;
+      --surface:     #141820;
+      --card:        #181e28;
+      --border:      #252d3d;
+      --border-soft: #1e2535;
+      --gold:        #c9a84c;
+      --gold-light:  #e8c97a;
+      --gold-dim:    #7a6230;
+      --gold-glow:   rgba(201,168,76,.15);
+      --white:       #edeae2;
+      --muted:       #7a8799;
+      --faint:       #3a4555;
+
+      --c-scheduled: #4a9eff;
+      --c-ongoing:   #52c97a;
+      --c-ended:     #8a9bb0;
+      --c-cancelled: #e05c5c;
+
+      --radius: 12px;
+      --radius-sm: 8px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--black);
+      color: var(--white);
+      font-family: 'Outfit', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    body::after {
+      content: '';
+      position: fixed; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+      pointer-events: none; z-index: 9999; opacity: .5;
+    }
+
+    nav {
+      background: var(--deep);
+      border-bottom: 1px solid var(--border);
+      padding: 1rem 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky; top: 0; z-index: 100;
+      font-family: 'Outfit', sans-serif;
+    }
+    .nav-logo {
+      font-family: 'Amiri', serif;
+      font-size: 1.3rem;
+      color: var(--gold-light);
+      text-decoration: none;
+    }
+    .nav-links { display: flex; gap: 1.5rem; }
+    .nav-links a {
+      font-size: .8rem;
+      letter-spacing: .1em;
+      color: var(--muted);
+      text-decoration: none;
+      transition: color .2s;
+    }
+    .nav-links a:hover, .nav-links a.active { color: var(--gold); }
+
+    .hero {
+      position: relative;
+      padding: 5rem 2rem 4rem;
+      text-align: center;
+      overflow: hidden;
+    }
+    .hero-bg {
+      position: absolute; inset: 0;
+      background:
+        radial-gradient(ellipse 90% 70% at 50% 0%, #1a2e1a 0%, transparent 65%),
+        radial-gradient(ellipse 50% 40% at 80% 100%, #0d1a2d 0%, transparent 55%),
+        linear-gradient(180deg, #0c110c 0%, var(--black) 100%);
+    }
+    .hero-pattern {
+      position: absolute; inset: 0;
+      background-image:
+        repeating-linear-gradient(60deg, transparent, transparent 50px, rgba(201,168,76,.018) 50px, rgba(201,168,76,.018) 51px),
+        repeating-linear-gradient(-60deg, transparent, transparent 50px, rgba(201,168,76,.018) 50px, rgba(201,168,76,.018) 51px);
+    }
+    .hero-content { position: relative; z-index: 1; max-width: 760px; margin: 0 auto; }
+
+    .hero-eyebrow {
+      font-size: .68rem;
+      letter-spacing: .3em;
+      text-transform: uppercase;
+      color: var(--gold-dim);
+      margin-bottom: 1.4rem;
+      opacity: 0;
+      animation: fadeUp .7s .2s ease forwards;
+    }
+
+    .hadith-text {
+      font-family: 'Amiri', serif;
+      font-size: clamp(1.05rem, 2.5vw, 1.5rem);
+      line-height: 2.1;
+      color: var(--gold-light);
+      text-shadow: 0 0 50px rgba(201,168,76,.3);
+      direction: rtl;
+      opacity: 0;
+      animation: fadeUp .9s .4s ease forwards;
+      margin-bottom: .8rem;
+    }
+
+    .hadith-source {
+      font-family: 'Amiri', serif;
+      font-size: .9rem;
+      color: var(--gold-dim);
+      opacity: 0;
+      animation: fadeUp .7s .7s ease forwards;
+      margin-bottom: 2.5rem;
+    }
+
+    .hero-divider {
+      display: flex; align-items: center; gap: 1rem;
+      justify-content: center; margin-bottom: 1.8rem;
+      opacity: 0;
+      animation: fadeUp .6s .9s ease forwards;
+    }
+    .hero-divider::before, .hero-divider::after {
+      content: ''; display: block; height: 1px; width: 60px;
+      background: linear-gradient(90deg, transparent, var(--gold-dim));
+    }
+    .hero-divider::after { background: linear-gradient(90deg, var(--gold-dim), transparent); }
+    .hero-divider span { color: var(--gold); font-size: 1rem; }
+
+    .hero-title {
+      font-size: clamp(1.4rem, 3.5vw, 2.2rem);
+      font-weight: 700;
+      letter-spacing: -.01em;
+      color: var(--white);
+      opacity: 0;
+      animation: fadeUp .7s 1s ease forwards;
+      margin-bottom: .5rem;
+    }
+    .hero-sub {
+      font-size: .85rem;
+      color: var(--muted);
+      letter-spacing: .08em;
+      opacity: 0;
+      animation: fadeUp .6s 1.1s ease forwards;
+    }
+
+    .stats-row {
+      display: flex;
+      justify-content: center;
+      gap: 0;
+      background: var(--deep);
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+      position: relative; z-index: 1;
+    }
+    .stat-pill {
+      padding: 1.2rem 2.2rem;
+      text-align: center;
+      border-right: 1px solid var(--border);
+      flex: 1; min-width: 120px;
+    }
+    .stat-pill:last-child { border-right: none; }
+    .stat-num {
+      font-size: 1.7rem;
+      font-weight: 700;
+      line-height: 1;
+    }
+    .stat-num.gold    { color: var(--gold); }
+    .stat-num.green   { color: var(--c-ongoing); }
+    .stat-num.blue    { color: var(--c-scheduled); }
+    .stat-num.grey    { color: var(--c-ended); }
+    .stat-num.red     { color: var(--c-cancelled); }
+    .stat-lbl {
+      font-size: .65rem;
+      letter-spacing: .15em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-top: .3rem;
+    }
+
+    .page-body {
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      grid-template-rows: auto 1fr;
+      min-height: calc(100vh - 320px);
+      position: relative; z-index: 1;
+    }
+
+    .sidebar {
+      background: var(--deep);
+      border-left: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      height: calc(100vh - 0px);
+      position: sticky;
+      top: 0;
+      overflow: hidden;
+    }
+
+    .sidebar-head {
+      padding: 1.4rem 1.2rem 1rem;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .sidebar-head h3 {
+      font-size: .7rem;
+      letter-spacing: .2em;
+      text-transform: uppercase;
+      color: var(--gold-dim);
+      margin-bottom: 1rem;
+    }
+
+    .search-wrap {
+      position: relative;
+      margin-bottom: .8rem;
+    }
+    .search-wrap svg {
+      position: absolute; right: .8rem; top: 50%;
+      transform: translateY(-50%);
+      color: var(--muted); pointer-events: none;
+    }
+    .search-input {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: .65rem 2.4rem .65rem .8rem;
+      color: var(--white);
+      font-family: 'Outfit', sans-serif;
+      font-size: .85rem;
+      outline: none;
+      transition: border-color .2s;
+    }
+    .search-input::placeholder { color: var(--muted); }
+    .search-input:focus { border-color: var(--gold-dim); }
+
+    .filter-group { margin-bottom: .8rem; }
+    .filter-label {
+      font-size: .62rem;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      color: var(--faint);
+      margin-bottom: .45rem;
+      display: block;
+    }
+    .pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .4rem;
+    }
+    .pill {
+      font-size: .72rem;
+      padding: .3rem .75rem;
+      border-radius: 99px;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      cursor: pointer;
+      transition: all .15s;
+      background: transparent;
+      font-family: 'Outfit', sans-serif;
+      white-space: nowrap;
+    }
+    .pill:hover { border-color: var(--gold-dim); color: var(--gold); }
+    .pill.active-all, .pill.active-scheduled, .pill.active-ongoing,
+    .pill.active-ended, .pill.active-cancelled {
+      font-weight: 500;
+    }
+    .pill.active-all       { border-color: var(--gold); color: var(--gold); background: var(--gold-glow); }
+    .pill.active-scheduled { border-color: var(--c-scheduled); color: var(--c-scheduled); background: rgba(74,158,255,.1); }
+    .pill.active-ongoing   { border-color: var(--c-ongoing);   color: var(--c-ongoing);   background: rgba(82,201,122,.1); }
+    .pill.active-ended     { border-color: var(--c-ended);     color: var(--c-ended);     background: rgba(138,155,176,.1); }
+    .pill.active-cancelled { border-color: var(--c-cancelled); color: var(--c-cancelled); background: rgba(224,92,92,.1); }
+
+    .filter-select {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: .6rem .8rem;
+      color: var(--white);
+      font-family: 'Outfit', sans-serif;
+      font-size: .82rem;
+      outline: none;
+      cursor: pointer;
+      margin-bottom: .8rem;
+    }
+    .filter-select option { background: var(--deep); }
+
+    .protest-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: .6rem;
+    }
+    .protest-list::-webkit-scrollbar { width: 4px; }
+    .protest-list::-webkit-scrollbar-track { background: transparent; }
+    .protest-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    .protest-card {
+      background: var(--card);
+      border: 1px solid var(--border-soft);
+      border-radius: var(--radius);
+      padding: 1rem;
+      margin-bottom: .6rem;
+      cursor: pointer;
+      transition: all .2s;
+      position: relative;
+      overflow: hidden;
+    }
+    .protest-card::before {
+      content: '';
+      position: absolute; top: 0; right: 0;
+      width: 3px; height: 100%;
+      border-radius: 0 3px 3px 0;
+    }
+    .protest-card.status-scheduled::before { background: var(--c-scheduled); }
+    .protest-card.status-ongoing::before   { background: var(--c-ongoing); }
+    .protest-card.status-ended::before     { background: var(--c-ended); }
+    .protest-card.status-cancelled::before { background: var(--c-cancelled); }
+
+    .protest-card:hover {
+      border-color: var(--border);
+      transform: translateX(-2px);
+      background: var(--surface);
+    }
+    .protest-card.selected {
+      border-color: var(--gold-dim);
+      background: rgba(201,168,76,.05);
+    }
+
+    .pc-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: .5rem;
+      margin-bottom: .5rem;
+    }
+    .pc-title {
+      font-size: .88rem;
+      font-weight: 600;
+      color: var(--white);
+      line-height: 1.3;
+      flex: 1;
+    }
+    .status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      margin-top: 4px;
+    }
+    .status-dot.scheduled { background: var(--c-scheduled); box-shadow: 0 0 6px var(--c-scheduled); }
+    .status-dot.ongoing   { background: var(--c-ongoing);   box-shadow: 0 0 6px var(--c-ongoing); animation: pulse 2s infinite; }
+    .status-dot.ended     { background: var(--c-ended); }
+    .status-dot.cancelled { background: var(--c-cancelled); }
+
+    .pc-meta {
+      display: flex;
+      gap: .4rem;
+      flex-wrap: wrap;
+      margin-bottom: .5rem;
+    }
+    .tag {
+      font-size: .62rem;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      padding: .2rem .55rem;
+      border-radius: 99px;
+      border: 1px solid var(--border);
+      color: var(--muted);
+    }
+    .tag.type { color: var(--gold-dim); border-color: rgba(201,168,76,.25); }
+
+    .pc-loc {
+      font-size: .75rem;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: .3rem;
+    }
+    .pc-date {
+      font-size: .72rem;
+      color: var(--faint);
+      margin-top: .3rem;
+    }
+
+    .list-state {
+      text-align: center;
+      padding: 3rem 1rem;
+      color: var(--muted);
+      font-size: .85rem;
+    }
+    .list-state .spin {
+      width: 28px; height: 28px;
+      border: 2px solid var(--border);
+      border-top-color: var(--gold);
+      border-radius: 50%;
+      animation: spin .8s linear infinite;
+      margin: 0 auto 1rem;
+    }
+
+    .map-panel {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .map-toolbar {
+      background: var(--deep);
+      border-bottom: 1px solid var(--border);
+      padding: .8rem 1.2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: .6rem;
+      flex-shrink: 0;
+    }
+    .map-legend {
+      display: flex;
+      gap: 1.2rem;
+      flex-wrap: wrap;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: .4rem;
+      font-size: .72rem;
+      color: var(--muted);
+    }
+    .legend-dot {
+      width: 10px; height: 10px; border-radius: 50%;
+    }
+    .legend-dot.scheduled { background: var(--c-scheduled); }
+    .legend-dot.ongoing   { background: var(--c-ongoing); }
+    .legend-dot.ended     { background: var(--c-ended); }
+    .legend-dot.cancelled { background: var(--c-cancelled); }
+
+    .result-count {
+      font-size: .75rem;
+      color: var(--muted);
+      letter-spacing: .05em;
+    }
+    .result-count span { color: var(--gold); font-weight: 600; }
+
+    #map {
+      flex: 1;
+      min-height: 520px;
+      background: var(--surface);
+    }
+
+    .leaflet-tile-pane { filter: brightness(.75) saturate(1.15) contrast(1.05); }
+    .labels-overlay { opacity: .32; }
+    .leaflet-popup-content-wrapper {
+      background: var(--card) !important;
+      border: 1px solid var(--border) !important;
+      border-radius: var(--radius) !important;
+      color: var(--white) !important;
+      box-shadow: 0 8px 32px rgba(0,0,0,.7) !important;
+      font-family: 'Outfit', sans-serif !important;
+    }
+    .leaflet-popup-tip { background: var(--card) !important; }
+    .leaflet-popup-close-button { color: var(--muted) !important; }
+
+    .detail-panel {
+      background: var(--deep);
+      border-top: 1px solid var(--border);
+      padding: 1.8rem 2rem;
+      display: none;
+    }
+    .detail-panel.open { display: block; }
+
+    .detail-inner {
+      max-width: 900px;
+    }
+    .detail-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 1rem;
+      margin-bottom: 1.2rem;
+    }
+    .detail-title {
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: var(--white);
+      line-height: 1.3;
+    }
+    .detail-close {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1rem;
+      transition: all .15s;
+      flex-shrink: 0;
+    }
+    .detail-close:hover { border-color: var(--gold-dim); color: var(--gold); }
+
+    .detail-tags {
+      display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: 1.2rem;
+    }
+    .dtag {
+      font-size: .7rem;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      padding: .3rem .75rem;
+      border-radius: 99px;
+      border: 1px solid;
+    }
+    .dtag.status-scheduled { color: var(--c-scheduled); border-color: var(--c-scheduled); background: rgba(74,158,255,.08); }
+    .dtag.status-ongoing   { color: var(--c-ongoing);   border-color: var(--c-ongoing);   background: rgba(82,201,122,.08); }
+    .dtag.status-ended     { color: var(--c-ended);     border-color: var(--c-ended);     background: rgba(138,155,176,.08); }
+    .dtag.status-cancelled { color: var(--c-cancelled); border-color: var(--c-cancelled); background: rgba(224,92,92,.08); }
+    .dtag.type { color: var(--gold); border-color: var(--gold-dim); background: var(--gold-glow); }
+    .dtag.theme { color: #b0d4ff; border-color: #2a4a6e; background: rgba(176,212,255,.06); }
+    .dtag.verification-official  { color: var(--c-ongoing); border-color: var(--c-ongoing); background: rgba(82,201,122,.08); }
+    .dtag.verification-community { color: var(--gold); border-color: var(--gold-dim); background: var(--gold-glow); }
+    .dtag.verification-unverified{ color: var(--muted); border-color: var(--border); }
+
+    .detail-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.2rem;
+    }
+    .dfield label {
+      font-size: .62rem;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      color: var(--faint);
+      display: block;
+      margin-bottom: .25rem;
+    }
+    .dfield p {
+      font-size: .85rem;
+      color: var(--white);
+      line-height: 1.5;
+    }
+    .dfield a {
+      color: var(--gold);
+      text-decoration: none;
+      font-size: .85rem;
+    }
+    .dfield a:hover { text-decoration: underline; }
+
+    .detail-desc {
+      background: var(--surface);
+      border: 1px solid var(--border-soft);
+      border-radius: var(--radius-sm);
+      padding: 1rem;
+      font-size: .85rem;
+      color: var(--muted);
+      line-height: 1.7;
+      margin-bottom: 1.2rem;
+    }
+
+    .detail-media {
+      display: flex; gap: .6rem; flex-wrap: wrap;
+    }
+    .media-btn {
+      font-size: .72rem;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      padding: .4rem 1rem;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      text-decoration: none;
+      transition: all .15s;
+      background: transparent;
+    }
+    .media-btn:hover { border-color: var(--gold-dim); color: var(--gold); }
+
+    /* REPORT BUTTON (card / detail) */
+    .report-btn {
+      font-size: .7rem;
+      letter-spacing: .06em;
+      padding: .35rem .8rem;
+      border-radius: var(--radius-sm);
+      border: 1px solid rgba(224,92,92,.35);
+      color: var(--c-cancelled);
+      background: rgba(224,92,92,.06);
+      cursor: pointer;
+      font-family: 'Outfit', sans-serif;
+      transition: all .15s;
+    }
+    .report-btn:hover { background: rgba(224,92,92,.15); border-color: var(--c-cancelled); }
+    .pc-report { margin-top: .6rem; text-align: left; }
+
+    /* REPORT MODAL */
+    .modal-overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(4,5,6,.7);
+      backdrop-filter: blur(3px);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      padding: 1.2rem;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal-box {
+      background: var(--deep);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      max-width: 440px;
+      width: 100%;
+      padding: 1.6rem;
+      box-shadow: 0 20px 60px rgba(0,0,0,.6);
+    }
+    .modal-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 1rem;
+      margin-bottom: .3rem;
+    }
+    .modal-head h3 {
+      font-family: 'Amiri', serif;
+      font-size: 1.1rem;
+      color: var(--gold-light);
+    }
+    .modal-sub {
+      font-size: .78rem;
+      color: var(--muted);
+      margin-bottom: 1.2rem;
+      line-height: 1.6;
+    }
+    .form-group { margin-bottom: 1rem; }
+    .form-group label {
+      display: block;
+      font-size: .68rem;
+      letter-spacing: .1em;
+      color: var(--faint);
+      margin-bottom: .4rem;
+    }
+    .form-group input, .form-group textarea {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: .65rem .8rem;
+      color: var(--white);
+      font-family: 'Outfit', sans-serif;
+      font-size: .85rem;
+      outline: none;
+      resize: vertical;
+      transition: border-color .2s;
+    }
+    .form-group textarea { min-height: 90px; }
+    .form-group input:focus, .form-group textarea:focus { border-color: var(--gold-dim); }
+    .form-group input.invalid, .form-group textarea.invalid { border-color: var(--c-cancelled); }
+    .field-error {
+      font-size: .72rem;
+      color: var(--c-cancelled);
+      margin-top: .35rem;
+      display: none;
+    }
+    .field-error.show { display: block; }
+    .char-count {
+      font-size: .68rem;
+      color: var(--faint);
+      text-align: left;
+      margin-top: .3rem;
+    }
+    .modal-actions {
+      display: flex;
+      gap: .6rem;
+      margin-top: 1.4rem;
+    }
+    .btn-modal {
+      flex: 1;
+      padding: .7rem;
+      border-radius: var(--radius-sm);
+      font-family: 'Outfit', sans-serif;
+      font-size: .82rem;
+      letter-spacing: .05em;
+      cursor: pointer;
+      transition: all .15s;
+    }
+    .btn-modal.primary {
+      background: var(--gold-glow);
+      border: 1px solid var(--gold-dim);
+      color: var(--gold-light);
+    }
+    .btn-modal.primary:hover { background: rgba(201,168,76,.25); border-color: var(--gold); }
+    .btn-modal.primary:disabled { opacity: .5; cursor: not-allowed; }
+    .btn-modal.ghost {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--muted);
+    }
+    .btn-modal.ghost:hover { border-color: var(--faint); color: var(--white); }
+    .modal-banner {
+      font-size: .8rem;
+      padding: .7rem .9rem;
+      border-radius: var(--radius-sm);
+      margin-bottom: 1rem;
+      display: none;
+      line-height: 1.6;
+    }
+    .modal-banner.show { display: block; }
+    .modal-banner.success {
+      background: rgba(82,201,122,.1);
+      border: 1px solid rgba(82,201,122,.35);
+      color: var(--c-ongoing);
+    }
+    .modal-banner.error {
+      background: rgba(224,92,92,.1);
+      border: 1px solid rgba(224,92,92,.35);
+      color: var(--c-cancelled);
+    }
+
+    footer {
+      background: var(--deep);
+      border-top: 1px solid var(--border);
+      padding: 3rem 2rem 2rem;
+      position: relative; z-index: 1;
+    }
+    .footer-inner { max-width: 1000px; margin: 0 auto; }
+    .footer-top {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 2rem;
+      margin-bottom: 2rem;
+    }
+    .footer-col h4 {
+      font-size: .65rem;
+      letter-spacing: .22em;
+      text-transform: uppercase;
+      color: var(--gold-dim);
+      margin-bottom: .9rem;
+    }
+    .footer-col p, .footer-col a {
+      font-size: .8rem;
+      color: var(--muted);
+      line-height: 1.9;
+      text-decoration: none;
+      display: block;
+    }
+    .footer-col a:hover { color: var(--gold-light); }
+    .footer-logo {
+      font-family: 'Amiri', serif;
+      font-size: 1.4rem;
+      color: var(--gold-light);
+      margin-bottom: .3rem;
+    }
+    .footer-hr { border: none; border-top: 1px solid var(--border); margin-bottom: 1.5rem; }
+    .footer-bottom {
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: .8rem;
+      font-size: .72rem;
+      color: var(--faint);
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(82,201,122,.5); }
+      50%       { box-shadow: 0 0 0 6px rgba(82,201,122,0); }
+    }
+
+    @media (max-width: 900px) {
+      .page-body {
+        grid-template-columns: 1fr;
+      }
+      .sidebar {
+        height: auto;
+        position: static;
+        border-left: none;
+        border-bottom: 1px solid var(--border);
+      }
+      .protest-list { max-height: 360px; }
+      .stat-pill { padding: 1rem 1.2rem; }
+    }
+    @media (max-width: 500px) {
+      .stats-row { gap: 0; }
+      .stat-num { font-size: 1.3rem; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<div id="site-nav"></div>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-pattern"></div>
+  <div class="hero-content">
+    <p class="hero-eyebrow">نصرة فلسطين</p>
+    <blockquote class="hadith-text">
+      "مَنْ رَأَى مِنْكُمْ مُنْكَرًا فَلْيُغَيِّرْهُ بِيَدِهِ، فَإِنْ لَمْ يَسْتَطِعْ فَبِلِسَانِهِ،<br/>
+      فَإِنْ لَمْ يَسْتَطِعْ فَبِقَلْبِهِ، وَذَلِكَ أَضْعَفُ الْإِيمَانِ"
+    </blockquote>
+    <p class="hadith-source">عَنْ أَبِي سَعِيدٍ الْخُدْرِيّ — رواه مسلم</p>
+    <div class="hero-divider"><span>✦</span></div>
+    <h1 class="hero-title">مسيرات التضامن مع فلسطين</h1>
+    <p class="hero-sub">رصد المظاهرات في العالم العربي نصرة لفلسطين والأقصى</p>
+  </div>
+</section>
+
+<!-- STATS -->
+<div class="stats-row" id="statsRow">
+  <div class="stat-pill">
+    <div class="stat-num gold" id="sTotal">—</div>
+    <div class="stat-lbl">إجمالي الفعاليات</div>
+  </div>
+  <div class="stat-pill">
+    <div class="stat-num green" id="sOngoing">—</div>
+    <div class="stat-lbl">جارية الآن</div>
+  </div>
+  <div class="stat-pill">
+    <div class="stat-num blue" id="sScheduled">—</div>
+    <div class="stat-lbl">قادمة</div>
+  </div>
+  <div class="stat-pill">
+    <div class="stat-num grey" id="sEnded">—</div>
+    <div class="stat-lbl">منتهية</div>
+  </div>
+  <div class="stat-pill">
+    <div class="stat-num red" id="sCancelled">—</div>
+    <div class="stat-lbl">ملغاة</div>
+  </div>
+</div>
+
+<!-- BODY -->
+<div class="page-body">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-head">
+      <h3>تصفية الفعاليات</h3>
+      <div class="search-wrap">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+        </svg>
+        <input class="search-input" id="searchInput" type="text" placeholder="ابحث بالعنوان أو المدينة…"/>
+      </div>
+
+      <div class="filter-group">
+        <span class="filter-label">الحالة</span>
+        <div class="pill-row" id="statusPills">
+          <button class="pill active-all" data-status="">الكل</button>
+          <button class="pill" data-status="ongoing">جارية</button>
+          <button class="pill" data-status="scheduled">قادمة</button>
+          <button class="pill" data-status="ended">منتهية</button>
+          <button class="pill" data-status="cancelled">ملغاة</button>
+        </div>
+      </div>
+
+      <div class="filter-group">
+        <span class="filter-label">الدولة</span>
+        <select class="filter-select" id="countryFilter">
+          <option value="">كل الدول</option>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <span class="filter-label">نوع الفعالية</span>
+        <select class="filter-select" id="typeFilter">
+          <option value="">جميع الأنواع</option>
+          <option value="march">مسيرة</option>
+          <option value="rally">تجمع</option>
+          <option value="sit-in">اعتصام</option>
+          <option value="vigil">وقفة</option>
+          <option value="digital-campaign">حملة رقمية</option>
+          <option value="academic-boycott">مقاطعة أكاديمية</option>
+          <option value="other">أخرى</option>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <span class="filter-label">الموضوع</span>
+        <select class="filter-select" id="themeFilter">
+          <option value="">كل المواضيع</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="protest-list" id="protestList">
+      <div class="list-state">
+        <div class="spin"></div>
+        جارٍ تحميل الفعاليات…
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAP PANEL -->
+  <div class="map-panel">
+    <div class="map-toolbar">
+      <div class="map-legend">
+        <div class="legend-item"><div class="legend-dot ongoing"></div> جارية</div>
+        <div class="legend-item"><div class="legend-dot scheduled"></div> قادمة</div>
+        <div class="legend-item"><div class="legend-dot ended"></div> منتهية</div>
+        <div class="legend-item"><div class="legend-dot cancelled"></div> ملغاة</div>
+      </div>
+      <div class="result-count">عدد الفعاليات: <span id="countDisplay">0</span></div>
+    </div>
+
+    <div id="map"></div>
+
+    <!-- Detail panel -->
+    <div class="detail-panel" id="detailPanel">
+      <div class="detail-inner">
+        <div class="detail-header">
+          <div class="detail-title" id="detailTitle"></div>
+          <button class="detail-close" id="detailClose">✕</button>
+        </div>
+        <div class="detail-tags" id="detailTags"></div>
+        <div class="detail-desc" id="detailDesc"></div>
+        <div class="detail-grid" id="detailGrid"></div>
+        <div class="detail-media" id="detailMedia"></div>
+        <div style="margin-top:1.2rem">
+          <button class="report-btn" id="detailReportBtn">⚑ الإبلاغ عن خطأ في هذه الفعالية</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<div id="site-footer"></div>
+
+<!-- REPORT MODAL -->
+<div class="modal-overlay" id="reportModal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3>الإبلاغ عن خطأ</h3>
+      <button class="detail-close" id="reportClose">✕</button>
+    </div>
+    <p class="modal-sub" id="reportModalSub">بلّغنا عن أي معلومة غير دقيقة في «<span id="reportProtestTitle"></span>» وسنراجعها.</p>
+
+    <div class="modal-banner error" id="reportErrorBanner"></div>
+    <div class="modal-banner success" id="reportSuccessBanner"></div>
+
+    <form id="reportForm">
+      <div class="form-group">
+        <label for="reportEmail">بريدك الإلكتروني</label>
+        <input type="email" id="reportEmail" maxlength="255" placeholder="example@email.com" autocomplete="email"/>
+        <div class="field-error" id="reportEmailError"></div>
+      </div>
+      <div class="form-group">
+        <label for="reportMessage">تفاصيل البلاغ (10 أحرف على الأقل)</label>
+        <textarea id="reportMessage" maxlength="512" placeholder="صف الخطأ أو المعلومة غير الدقيقة…"></textarea>
+        <div class="char-count" id="reportCharCount">0 / 512</div>
+        <div class="field-error" id="reportMessageError"></div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn-modal ghost" id="reportCancel">إلغاء</button>
+        <button type="submit" class="btn-modal primary" id="reportSubmit">إرسال البلاغ</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="layout_base.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const API_BASE = "http://massira.up.railway.app";
+const PROTESTS_ENDPOINT = `${API_BASE}/v1/api/user/protest/`;
+const REPORT_ENDPOINT   = `${API_BASE}/v1/api/user/report/`;
+
+let allProtests = [];
+let filtered    = [];
+let activeStatus = '';
+let map, markersLayer;
+let selectedId = null;
+
+const STATUS_COLOR = {
+  ongoing:   '#52c97a',
+  scheduled: '#4a9eff',
+  ended:     '#8a9bb0',
+  cancelled: '#e05c5c'
+};
+
+const STATUS_LABELS       = { scheduled: 'قادمة', ongoing: 'جارية', ended: 'منتهية', cancelled: 'ملغاة' };
+const TYPE_LABELS         = { march: 'مسيرة', rally: 'تجمع', 'sit-in': 'اعتصام', vigil: 'وقفة', 'digital-campaign': 'حملة رقمية', 'academic-boycott': 'مقاطعة أكاديمية', other: 'أخرى' };
+const VERIFICATION_LABELS = { 'official-source': 'مصدر رسمي', 'community-verified': 'موثّق مجتمعياً', unverified: 'غير موثّق' };
+const ORGANISER_LABELS    = { ngo: 'منظمة غير حكومية', 'student-group': 'مجموعة طلابية', union: 'نقابة', 'informal-coalition': 'تحالف غير رسمي', 'political-party': 'حزب سياسي', 'religious-body': 'هيئة دينية', other: 'أخرى' };
+const RECURRENCE_LABELS   = { none: 'مرة واحدة', daily: 'يومياً', weekly: 'أسبوعياً', monday: 'كل اثنين', tuesday: 'كل ثلاثاء', wednesday: 'كل أربعاء', thursday: 'كل خميس', friday: 'كل جمعة', saturday: 'كل سبت', sunday: 'كل أحد' };
+
+function getStatusLabel(p)       { return STATUS_LABELS[p.status] || p.status; }
+function getTypeLabel(p)         { return TYPE_LABELS[p.protest_type] || p.protest_type; }
+function getVerificationLabel(p) { return VERIFICATION_LABELS[p.verification_level] || p.verification_level; }
+function getOrganiserLabel(p)    { return ORGANISER_LABELS[p.organiser_type] || p.organiser_type; }
+function getRecurrenceLabel(p)   { return RECURRENCE_LABELS[p.recurrence] || p.recurrence; }
+function getHashtags(p)          { return (p.hashtags || []).map(h => h.content).filter(Boolean); }
+function getAudience(p)          { return (p.audience || []).map(a => a.content).filter(Boolean); }
+
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+const MARKER_PALETTE = [
+  '#e8c97a', '#52c97a', '#4a9eff', '#e05c5c', '#c98ae8',
+  '#4ad8d8', '#ffb347', '#7ae85c', '#ff7ab3', '#8a9bff'
+];
+
+function hashId(id) {
+  return Math.abs((id * 2654435761) % 2147483647);
+}
+
+function createMarkerIcon(protestId) {
+  const color = MARKER_PALETTE[hashId(protestId) % MARKER_PALETTE.length];
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 32" width="24" height="32">
+    <path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 20 12 20S24 21 24 12C24 5.4 18.6 0 12 0z"
+      fill="${color}" stroke="rgba(0,0,0,.4)" stroke-width="1.5"/>
+    <circle cx="12" cy="12" r="5" fill="rgba(0,0,0,.35)"/>
+    <circle cx="12" cy="12" r="3" fill="white" opacity=".9"/>
+  </svg>`;
+  return L.divIcon({
+    html: svg, className: '', iconSize: [24, 32], iconAnchor: [12, 32], popupAnchor: [0, -34]
+  });
+}
+
+async function fetchProtests() {
+  const res = await fetch(PROTESTS_ENDPOINT);
+  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  const data = await res.json();
+  return data.map(p => ({
+    ...p,
+    latitude:  p.latitude  !== null && p.latitude  !== undefined ? parseFloat(p.latitude)  : null,
+    longitude: p.longitude !== null && p.longitude !== undefined ? parseFloat(p.longitude) : null,
+  }));
+}
+
+function initMap() {
+  map = L.map('map', {
+    center: [25, 35],
+    zoom: 4,
+    zoomControl: true,
+    attributionControl: false
+  });
+
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+    attribution: 'Esri, Maxar, Earthstar Geographics',
+    maxZoom: 19
+  }).addTo(map);
+
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
+    attribution: 'Esri',
+    maxZoom: 19,
+    pane: 'overlayPane',
+    className: 'labels-overlay'
+  }).addTo(map);
+
+  L.control.attribution({ prefix: false }).addTo(map);
+  markersLayer = L.layerGroup().addTo(map);
+}
+
+function renderMarkers(protests) {
+  markersLayer.clearLayers();
+  protests.forEach(p => {
+    if (!Number.isFinite(p.latitude) || !Number.isFinite(p.longitude)) return;
+    const marker = L.marker([p.latitude, p.longitude], {
+      icon: createMarkerIcon(p.id)
+    });
+
+    const popupHTML = `
+      <div style="font-family:'Outfit',sans-serif; min-width:200px; padding:.2rem">
+        <div style="font-size:.75rem;letter-spacing:.12em;text-transform:uppercase;
+          color:${STATUS_COLOR[p.status]};margin-bottom:.4rem">${getStatusLabel(p)}</div>
+        <div style="font-weight:600;font-size:.95rem;color:#edeae2;margin-bottom:.4rem;line-height:1.3">${escapeHtml(p.title)}</div>
+        <div style="font-size:.78rem;color:#7a8799;margin-bottom:.3rem">
+          📍 ${escapeHtml(p.city)}, ${escapeHtml(p.country)}
+        </div>
+        <div style="font-size:.75rem;color:#7a8799;margin-bottom:.6rem">
+          📅 ${formatDate(p.start_date_time)}
+        </div>
+        <div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:.6rem">
+          <span style="font-size:.6rem;padding:.2rem .5rem;border-radius:99px;
+            border:1px solid rgba(201,168,76,.3);color:#c9a84c">${getTypeLabel(p)}</span>
+        </div>
+        <div style="display:flex;gap:.4rem">
+          <button onclick="openDetail(${p.id})" style="
+            flex:1;background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.3);
+            color:#c9a84c;padding:.35rem .6rem;border-radius:6px;font-size:.7rem;
+            cursor:pointer;font-family:'Outfit',sans-serif;letter-spacing:.05em;">التفاصيل</button>
+          <button onclick="openReportModal(${p.id})" style="
+            background:rgba(224,92,92,.08);border:1px solid rgba(224,92,92,.3);
+            color:#e05c5c;padding:.35rem .6rem;border-radius:6px;font-size:.7rem;
+            cursor:pointer;font-family:'Outfit',sans-serif;letter-spacing:.05em;">⚑ إبلاغ</button>
+        </div>
+      </div>`;
+
+    marker.bindPopup(popupHTML, { maxWidth: 280 });
+    marker.on('click', () => { openDetail(p.id); });
+    markersLayer.addLayer(marker);
+  });
+}
+
+function renderList(protests) {
+  const list = document.getElementById('protestList');
+  document.getElementById('countDisplay').textContent = protests.length.toLocaleString('en-US');
+
+  if (protests.length === 0) {
+    list.innerHTML = `<div class="list-state">لا توجد فعاليات تطابق معايير البحث.</div>`;
+    return;
+  }
+
+  list.innerHTML = protests.map(p => `
+    <div class="protest-card status-${p.status} ${selectedId === p.id ? 'selected' : ''}"
+         onclick="openDetail(${p.id})" id="card-${p.id}">
+      <div class="pc-top">
+        <div class="pc-title">${escapeHtml(p.title)}</div>
+        <div class="status-dot ${p.status}"></div>
+      </div>
+      <div class="pc-meta">
+        <span class="tag type">${getTypeLabel(p)}</span>
+        ${getHashtags(p).slice(0,2).map(t=>`<span class="tag">${escapeHtml(t)}</span>`).join('')}
+      </div>
+      <div class="pc-loc">
+        <svg width="10" height="10" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+        </svg>
+        ${escapeHtml(p.city)}, ${escapeHtml(p.country)}
+      </div>
+      <div class="pc-date">📅 ${formatDate(p.start_date_time)}</div>
+      <div class="pc-report">
+        <button class="report-btn" onclick="event.stopPropagation(); openReportModal(${p.id})">⚑ الإبلاغ عن خطأ</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function openDetail(id) {
+  const p = allProtests.find(x => x.id === id);
+  if (!p) return;
+  selectedId = id;
+
+  document.querySelectorAll('.protest-card').forEach(c => c.classList.remove('selected'));
+  const card = document.getElementById(`card-${id}`);
+  if (card) { card.classList.add('selected'); card.scrollIntoView({ behavior:'smooth', block:'nearest' }); }
+
+  if (Number.isFinite(p.latitude) && Number.isFinite(p.longitude)) {
+    map.flyTo([p.latitude, p.longitude], 10, { duration: 1.2 });
+  }
+
+  document.getElementById('detailTitle').textContent = p.title;
+
+  const tags = document.getElementById('detailTags');
+  const vClass = p.verification_level === 'official-source' ? 'verification-official'
+               : p.verification_level === 'community-verified' ? 'verification-community'
+               : 'verification-unverified';
+  tags.innerHTML = `
+    <span class="dtag status-${p.status}">${getStatusLabel(p)}</span>
+    <span class="dtag type">${getTypeLabel(p)}</span>
+    ${getHashtags(p).map(t=>`<span class="dtag theme">${escapeHtml(t)}</span>`).join('')}
+    <span class="dtag ${vClass}">${getVerificationLabel(p)}</span>
+  `;
+
+  document.getElementById('detailDesc').textContent = p.description || 'لا يوجد وصف.';
+
+  const grid = document.getElementById('detailGrid');
+  const fields = [
+    ['التاريخ والوقت', `${formatDate(p.start_date_time)}${p.expected_end_date_time ? ' → ' + formatDate(p.expected_end_date_time) : ''}`],
+    ['التكرار', getRecurrenceLabel(p)],
+    ['الموقع', [p.venue, p.street_address, p.city, p.country].filter(Boolean).join(', ') || '—'],
+    ['المنظم', p.organiser_name ? `${p.organiser_name} (${getOrganiserLabel(p)})` : '—'],
+    ['التقدير الحضوري', p.estimated_turnout ?? '—'],
+    ['الجمهور المستهدف', getAudience(p).join('، ') || '—'],
+    ['ملاحظات', p.notes_on_changes || '—'],
+  ];
+  grid.innerHTML = fields.map(([label, val]) => `
+    <div class="dfield">
+      <label>${escapeHtml(label)}</label>
+      <p>${escapeHtml(val)}</p>
+    </div>
+  `).join('');
+
+  const media = document.getElementById('detailMedia');
+  const links = p.links || [];
+  const mediaHTML = links
+    .filter(l => l && l.url)
+    .map(l => `<a href="${escapeHtml(l.url)}" target="_blank" rel="noopener" class="media-btn">${platformIcon(l.name)} ${escapeHtml(l.name || 'رابط')}</a>`)
+    .join('');
+  media.innerHTML = mediaHTML || '<span style="color:var(--faint);font-size:.8rem">لا توجد روابط</span>';
+
+  document.getElementById('detailReportBtn').onclick = () => openReportModal(p.id);
+
+  document.getElementById('detailPanel').classList.add('open');
+}
+
+function platformIcon(name) {
+  const key = (name || '').toLowerCase();
+  const icons = { instagram:'📸', facebook:'👥', twitter:'🐦', x:'🐦', youtube:'▶️', tiktok:'🎵', telegram:'✈️', whatsapp:'💬', website:'🌐', source:'🔗', livestream:'📺' };
+  for (const k in icons) if (key.includes(k)) return icons[k];
+  return '🔗';
+}
+
+document.getElementById('detailClose').addEventListener('click', () => {
+  document.getElementById('detailPanel').classList.remove('open');
+  selectedId = null;
+  document.querySelectorAll('.protest-card').forEach(c => c.classList.remove('selected'));
+});
+
+function updateStats(protests) {
+  const count = s => protests.filter(p => p.status === s).length;
+  document.getElementById('sTotal').textContent     = protests.length;
+  document.getElementById('sOngoing').textContent   = count('ongoing');
+  document.getElementById('sScheduled').textContent = count('scheduled');
+  document.getElementById('sEnded').textContent     = count('ended');
+  document.getElementById('sCancelled').textContent = count('cancelled');
+}
+
+function populateCountries(protests) {
+  const countries = [...new Set(protests.map(p => p.country).filter(Boolean))].sort();
+  const sel = document.getElementById('countryFilter');
+  sel.innerHTML = '<option value="">كل الدول</option>';
+  countries.forEach(c => {
+    const o = document.createElement('option');
+    o.value = c; o.textContent = c;
+    sel.appendChild(o);
+  });
+}
+
+function populateThemes(protests) {
+  const themes = [...new Set(protests.flatMap(p => getHashtags(p)))].sort();
+  const sel = document.getElementById('themeFilter');
+  sel.innerHTML = '<option value="">كل المواضيع</option>';
+  themes.forEach(t => {
+    const o = document.createElement('option');
+    o.value = t; o.textContent = t;
+    sel.appendChild(o);
+  });
+}
+
+function applyFilters() {
+  const q       = document.getElementById('searchInput').value.trim().toLowerCase();
+  const country = document.getElementById('countryFilter').value;
+  const type    = document.getElementById('typeFilter').value;
+  const theme   = document.getElementById('themeFilter').value;
+
+  filtered = allProtests.filter(p => {
+    if (activeStatus && p.status !== activeStatus) return false;
+    if (country && p.country !== country) return false;
+    if (type && p.protest_type !== type) return false;
+    if (theme && !getHashtags(p).map(t=>t.toLowerCase()).includes(theme.toLowerCase())) return false;
+    if (q) {
+      const haystack = `${p.title} ${p.city} ${p.country} ${p.organiser_name}`.toLowerCase();
+      if (!haystack.includes(q)) return false;
+    }
+    return true;
+  });
+
+  renderList(filtered);
+  renderMarkers(filtered);
+}
+
+document.getElementById('statusPills').addEventListener('click', e => {
+  const btn = e.target.closest('.pill');
+  if (!btn) return;
+  activeStatus = btn.dataset.status;
+  document.querySelectorAll('#statusPills .pill').forEach(b => {
+    b.className = 'pill';
+    if (b === btn) {
+      b.classList.add(activeStatus ? `active-${activeStatus}` : 'active-all');
+    }
+  });
+  applyFilters();
+});
+
+function formatDate(dt) {
+  if (!dt) return '—';
+  const d = new Date(dt);
+  if (isNaN(d)) return dt;
+  return d.toLocaleDateString('ar-EG-u-nu-latn', { day:'numeric', month:'long', year:'numeric', hour:'2-digit', minute:'2-digit' });
+}
+
+async function init() {
+  initMap();
+  try {
+    allProtests = await fetchProtests();
+  } catch (err) {
+    console.error(err);
+    document.getElementById('protestList').innerHTML =
+      `<div class="list-state">تعذّر تحميل الفعاليات. حاول تحديث الصفحة لاحقاً.</div>`;
+    return;
+  }
+  filtered = [...allProtests];
+
+  updateStats(allProtests);
+  populateCountries(allProtests);
+  populateThemes(allProtests);
+  renderList(filtered);
+  renderMarkers(filtered);
+
+  let debounce;
+  document.getElementById('searchInput').addEventListener('input', () => {
+    clearTimeout(debounce);
+    debounce = setTimeout(applyFilters, 250);
+  });
+  document.getElementById('countryFilter').addEventListener('change', applyFilters);
+  document.getElementById('typeFilter').addEventListener('change', applyFilters);
+  document.getElementById('themeFilter').addEventListener('change', applyFilters);
+}
+
+/* ============ REPORT MODAL ============ */
+const reportModal      = document.getElementById('reportModal');
+const reportForm        = document.getElementById('reportForm');
+const reportEmailInput  = document.getElementById('reportEmail');
+const reportMessageInput= document.getElementById('reportMessage');
+const reportEmailError  = document.getElementById('reportEmailError');
+const reportMessageError= document.getElementById('reportMessageError');
+const reportErrorBanner = document.getElementById('reportErrorBanner');
+const reportSuccessBanner = document.getElementById('reportSuccessBanner');
+const reportSubmitBtn   = document.getElementById('reportSubmit');
+const reportCharCount   = document.getElementById('reportCharCount');
+let reportProtestId = null;
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function openReportModal(id) {
+  const p = allProtests.find(x => x.id === id);
+  reportProtestId = id;
+  document.getElementById('reportProtestTitle').textContent = p ? p.title : '';
+  reportForm.reset();
+  reportForm.style.display = '';
+  reportSubmitBtn.disabled = false;
+  reportSubmitBtn.textContent = 'إرسال البلاغ';
+  [reportEmailInput, reportMessageInput].forEach(el => el.classList.remove('invalid'));
+  [reportEmailError, reportMessageError, reportErrorBanner, reportSuccessBanner].forEach(el => el.classList.remove('show'));
+  reportCharCount.textContent = '0 / 512';
+  reportModal.classList.add('open');
+  reportEmailInput.focus();
+}
+
+function closeReportModal() {
+  reportModal.classList.remove('open');
+  reportProtestId = null;
+}
+
+reportMessageInput.addEventListener('input', () => {
+  reportCharCount.textContent = `${reportMessageInput.value.length} / 512`;
+});
+
+function validateReportForm() {
+  let valid = true;
+  const email = reportEmailInput.value.trim();
+  const message = reportMessageInput.value.trim();
+
+  reportEmailInput.classList.remove('invalid');
+  reportMessageInput.classList.remove('invalid');
+  reportEmailError.classList.remove('show');
+  reportMessageError.classList.remove('show');
+
+  if (!email || email.length < 3 || email.length > 255 || !EMAIL_RE.test(email)) {
+    reportEmailInput.classList.add('invalid');
+    reportEmailError.textContent = 'يرجى إدخال بريد إلكتروني صحيح.';
+    reportEmailError.classList.add('show');
+    valid = false;
+  }
+  if (!message || message.length < 10 || message.length > 512) {
+    reportMessageInput.classList.add('invalid');
+    reportMessageError.textContent = 'التفاصيل يجب أن تكون بين 10 و512 حرفاً.';
+    reportMessageError.classList.add('show');
+    valid = false;
+  }
+  return valid;
+}
+
+async function submitReport(e) {
+  e.preventDefault();
+  reportErrorBanner.classList.remove('show');
+  if (reportProtestId === null || !validateReportForm()) return;
+
+  reportSubmitBtn.disabled = true;
+  reportSubmitBtn.textContent = 'جارٍ الإرسال…';
+
+  try {
+    const res = await fetch(REPORT_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        protest_id: reportProtestId,
+        message: reportMessageInput.value.trim(),
+        email: reportEmailInput.value.trim()
+      })
+    });
+
+    if (res.status === 201) {
+      reportForm.style.display = 'none';
+      reportSuccessBanner.textContent = 'شكراً، تم إرسال بلاغك بنجاح. سيقوم فريقنا بمراجعته.';
+      reportSuccessBanner.classList.add('show');
+      setTimeout(closeReportModal, 2200);
+      return;
+    }
+
+    if (res.status === 404) {
+      reportErrorBanner.textContent = 'تعذّر العثور على هذه الفعالية. قد تكون أُزيلت.';
+      reportErrorBanner.classList.add('show');
+    } else if (res.status === 422) {
+      const data = await res.json().catch(() => null);
+      const detail = data && data.detail ? data.detail : [];
+      let shown = false;
+      detail.forEach(d => {
+        const field = (d.loc || []).slice(-1)[0];
+        if (field === 'email') {
+          reportEmailInput.classList.add('invalid');
+          reportEmailError.textContent = d.msg;
+          reportEmailError.classList.add('show');
+          shown = true;
+        } else if (field === 'message') {
+          reportMessageInput.classList.add('invalid');
+          reportMessageError.textContent = d.msg;
+          reportMessageError.classList.add('show');
+          shown = true;
+        }
+      });
+      if (!shown) {
+        reportErrorBanner.textContent = 'تحقق من البيانات المدخلة وحاول مرة أخرى.';
+        reportErrorBanner.classList.add('show');
+      }
+    } else {
+      reportErrorBanner.textContent = 'حدث خطأ غير متوقع. حاول مرة أخرى لاحقاً.';
+      reportErrorBanner.classList.add('show');
+    }
+  } catch (err) {
+    console.error(err);
+    reportErrorBanner.textContent = 'تعذّر الاتصال بالخادم. تحقق من اتصالك بالإنترنت.';
+    reportErrorBanner.classList.add('show');
+  } finally {
+    reportSubmitBtn.disabled = false;
+    reportSubmitBtn.textContent = 'إرسال البلاغ';
+  }
+}
+
+reportForm.addEventListener('submit', submitReport);
+document.getElementById('reportClose').addEventListener('click', closeReportModal);
+document.getElementById('reportCancel').addEventListener('click', closeReportModal);
+reportModal.addEventListener('click', e => { if (e.target === reportModal) closeReportModal(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && reportModal.classList.contains('open')) closeReportModal(); });
+
+window.openDetail = openDetail;
+window.openReportModal = openReportModal;
+init();
+</script>
+</body>
+</html>
