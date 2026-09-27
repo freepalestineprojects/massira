@@ -1,0 +1,1287 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>لوحة التحكم — مسيرة</title>
+<link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --black: #08090a; --deep: #0e1117; --surface: #141820; --card: #181e28;
+    --border: #252d3d; --border-soft: #1e2535;
+    --gold: #c9a84c; --gold-light: #e8c97a; --gold-dim: #7a6230; --gold-glow: rgba(201,168,76,.15);
+    --white: #edeae2; --muted: #7a8799; --faint: #3a4555;
+    --c-scheduled: #4a9eff; --c-ongoing: #52c97a; --c-ended: #8a9bb0; --c-cancelled: #e05c5c;
+    --radius: 12px; --radius-sm: 8px;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--black); color: var(--white); font-family: 'Outfit', sans-serif;
+    min-height: 100vh;
+  }
+
+  /* ===== TOP BAR ===== */
+  .topbar {
+    background: var(--deep); border-bottom: 1px solid var(--border);
+    padding: .9rem 1.6rem; display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 200; flex-wrap: wrap; gap: .8rem;
+  }
+  .topbar-logo { font-family: 'Amiri', serif; font-size: 1.15rem; color: var(--gold-light); }
+  .topbar-right { display: flex; align-items: center; gap: 1rem; }
+  .admin-id { font-size: .75rem; color: var(--muted); }
+  .btn-logout {
+    font-size: .75rem; padding: .45rem .9rem; border-radius: var(--radius-sm);
+    border: 1px solid rgba(224,92,92,.35); color: var(--c-cancelled); background: rgba(224,92,92,.06);
+    cursor: pointer; font-family: 'Outfit', sans-serif; transition: all .15s;
+  }
+  .btn-logout:hover { background: rgba(224,92,92,.15); }
+
+  /* ===== TABS ===== */
+  .tabs {
+    display: flex; gap: .3rem; background: var(--deep); border-bottom: 1px solid var(--border);
+    padding: 0 1.6rem; overflow-x: auto; position: sticky; top: 57px; z-index: 190;
+  }
+  .tab-btn {
+    background: transparent; border: none; border-bottom: 2px solid transparent;
+    color: var(--muted); font-family: 'Outfit', sans-serif; font-size: .85rem;
+    padding: .9rem 1rem; cursor: pointer; white-space: nowrap; transition: all .15s;
+  }
+  .tab-btn:hover { color: var(--gold); }
+  .tab-btn.active { color: var(--gold); border-bottom-color: var(--gold); font-weight: 500; }
+  .tab-badge {
+    display: inline-block; margin-right: .35rem; background: var(--gold-glow); color: var(--gold);
+    font-size: .68rem; padding: .05rem .45rem; border-radius: 99px;
+  }
+
+  .page { max-width: 1300px; margin: 0 auto; padding: 1.6rem; }
+  .page-section { display: none; }
+  .page-section.active { display: block; }
+
+  /* ===== TOOLBAR ===== */
+  .toolbar {
+    display: flex; flex-wrap: wrap; gap: .6rem; align-items: center; margin-bottom: 1.2rem;
+    background: var(--card); border: 1px solid var(--border-soft); border-radius: var(--radius);
+    padding: 1rem;
+  }
+  .toolbar .field { display: flex; flex-direction: column; gap: .3rem; }
+  .toolbar label { font-size: .62rem; letter-spacing: .1em; text-transform: uppercase; color: var(--faint); }
+  .toolbar select, .toolbar input {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm);
+    padding: .5rem .7rem; color: var(--white); font-family: 'Outfit', sans-serif; font-size: .8rem;
+    outline: none; min-width: 140px;
+  }
+  .toolbar select:focus, .toolbar input:focus { border-color: var(--gold-dim); }
+  .spacer { flex: 1; }
+  .btn {
+    padding: .55rem 1.1rem; border-radius: var(--radius-sm); font-family: 'Outfit', sans-serif;
+    font-size: .8rem; letter-spacing: .03em; cursor: pointer; transition: all .15s; border: 1px solid transparent;
+    white-space: nowrap;
+  }
+  .btn-gold { background: var(--gold-glow); border-color: var(--gold-dim); color: var(--gold-light); }
+  .btn-gold:hover { background: var(--gold-dim); color: var(--black); }
+  .btn-ghost { background: transparent; border-color: var(--border); color: var(--muted); }
+  .btn-ghost:hover { border-color: var(--gold-dim); color: var(--gold); }
+  .btn-danger { background: rgba(224,92,92,.06); border-color: rgba(224,92,92,.35); color: var(--c-cancelled); }
+  .btn-danger:hover { background: rgba(224,92,92,.18); }
+  .btn-sm { padding: .35rem .7rem; font-size: .72rem; }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+
+  /* ===== TABLE ===== */
+  .table-wrap {
+    background: var(--card); border: 1px solid var(--border-soft); border-radius: var(--radius);
+    overflow: hidden;
+  }
+  table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+  thead th {
+    text-align: right; padding: .8rem 1rem; font-size: .65rem; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--faint); background: var(--deep); border-bottom: 1px solid var(--border); white-space: nowrap;
+  }
+  tbody td { padding: .8rem 1rem; border-bottom: 1px solid var(--border-soft); color: var(--white); vertical-align: top; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: var(--surface); }
+  .row-actions { display: flex; gap: .4rem; flex-wrap: wrap; }
+  .cell-muted { color: var(--muted); font-size: .78rem; }
+  .cell-title { font-weight: 600; max-width: 260px; }
+  .empty-state, .loading-state {
+    text-align: center; padding: 3rem 1rem; color: var(--muted); font-size: .85rem;
+  }
+  .spin {
+    width: 26px; height: 26px; border: 2px solid var(--border); border-top-color: var(--gold);
+    border-radius: 50%; animation: spin .8s linear infinite; margin: 0 auto 1rem;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ===== BADGES ===== */
+  .badge {
+    display: inline-flex; align-items: center; gap: .3rem; font-size: .68rem; letter-spacing: .04em;
+    padding: .25rem .6rem; border-radius: 99px; border: 1px solid; white-space: nowrap;
+  }
+  .badge.status-scheduled { color: var(--c-scheduled); border-color: var(--c-scheduled); background: rgba(74,158,255,.08); }
+  .badge.status-ongoing   { color: var(--c-ongoing);   border-color: var(--c-ongoing);   background: rgba(82,201,122,.08); }
+  .badge.status-ended     { color: var(--c-ended);     border-color: var(--c-ended);     background: rgba(138,155,176,.08); }
+  .badge.status-cancelled { color: var(--c-cancelled); border-color: var(--c-cancelled); background: rgba(224,92,92,.08); }
+  .badge.verification-unverified       { color: var(--muted); border-color: var(--border); }
+  .badge.verification-community-verified{ color: var(--gold); border-color: var(--gold-dim); background: var(--gold-glow); }
+  .badge.verification-official-source  { color: var(--c-ongoing); border-color: var(--c-ongoing); background: rgba(82,201,122,.08); }
+  .badge.approved-yes { color: var(--c-ongoing); border-color: var(--c-ongoing); background: rgba(82,201,122,.08); }
+  .badge.approved-no  { color: var(--gold); border-color: var(--gold-dim); background: var(--gold-glow); }
+  .badge.report-pending  { color: var(--gold); border-color: var(--gold-dim); background: var(--gold-glow); }
+  .badge.report-reviewed { color: var(--c-scheduled); border-color: var(--c-scheduled); background: rgba(74,158,255,.08); }
+  .badge.report-resolved { color: var(--c-ongoing); border-color: var(--c-ongoing); background: rgba(82,201,122,.08); }
+
+  /* ===== TOAST ===== */
+  #toastWrap {
+    position: fixed; bottom: 1.4rem; left: 1.4rem; z-index: 2000;
+    display: flex; flex-direction: column; gap: .5rem;
+  }
+  .toast {
+    padding: .8rem 1.1rem; border-radius: var(--radius-sm); font-size: .82rem;
+    box-shadow: 0 10px 30px rgba(0,0,0,.5); max-width: 340px; line-height: 1.5;
+    animation: toastIn .2s ease;
+  }
+  .toast.success { background: rgba(82,201,122,.14); border: 1px solid var(--c-ongoing); color: #baf0c8; }
+  .toast.error   { background: rgba(224,92,92,.14); border: 1px solid var(--c-cancelled); color: #ffc2c2; }
+  @keyframes toastIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* ===== MODAL ===== */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(4,5,6,.75); backdrop-filter: blur(3px);
+    z-index: 1000; align-items: flex-start; justify-content: center; padding: 3rem 1.2rem; overflow-y: auto;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal-box {
+    background: var(--deep); border: 1px solid var(--border); border-radius: var(--radius);
+    max-width: 620px; width: 100%; padding: 1.6rem; box-shadow: 0 20px 60px rgba(0,0,0,.6);
+  }
+  .modal-box.narrow { max-width: 420px; }
+  .modal-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; margin-bottom: 1.2rem; }
+  .modal-head h3 { font-family: 'Amiri', serif; font-size: 1.15rem; color: var(--gold-light); }
+  .modal-close {
+    background: var(--surface); border: 1px solid var(--border); color: var(--muted);
+    width: 30px; height: 30px; border-radius: 50%; cursor: pointer; display: flex;
+    align-items: center; justify-content: center; font-size: 1rem; flex-shrink: 0; transition: all .15s;
+  }
+  .modal-close:hover { border-color: var(--gold-dim); color: var(--gold); }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  .form-grid .full { grid-column: 1 / -1; }
+  .form-group { margin-bottom: 1rem; }
+  .form-group label { display: block; font-size: .68rem; letter-spacing: .08em; color: var(--faint); margin-bottom: .4rem; }
+  .form-group input, .form-group select, .form-group textarea {
+    width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm);
+    padding: .6rem .8rem; color: var(--white); font-family: 'Outfit', sans-serif; font-size: .82rem;
+    outline: none; resize: vertical; transition: border-color .2s;
+  }
+  .form-group textarea { min-height: 70px; }
+  .form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: var(--gold-dim); }
+  .form-group input.invalid, .form-group textarea.invalid { border-color: var(--c-cancelled); }
+  .field-error { font-size: .7rem; color: var(--c-cancelled); margin-top: .3rem; display: none; }
+  .field-error.show { display: block; }
+  .repeat-block { border: 1px solid var(--border-soft); border-radius: var(--radius-sm); padding: .7rem; margin-bottom: .6rem; }
+  .repeat-row { display: flex; gap: .5rem; margin-bottom: .5rem; }
+  .repeat-row input { flex: 1; }
+  .repeat-row .btn-danger { flex-shrink: 0; }
+  .modal-actions { display: flex; gap: .6rem; margin-top: 1.2rem; }
+  .modal-actions .btn { flex: 1; }
+  .modal-error-banner {
+    display: none; background: rgba(224,92,92,.1); border: 1px solid rgba(224,92,92,.35); color: #ff9b9b;
+    font-size: .8rem; padding: .7rem .9rem; border-radius: var(--radius-sm); margin-bottom: 1rem; line-height: 1.5;
+  }
+  .modal-error-banner.show { display: block; }
+  .section-label {
+    font-size: .68rem; letter-spacing: .12em; text-transform: uppercase; color: var(--gold-dim);
+    margin: 1.2rem 0 .6rem; border-top: 1px solid var(--border-soft); padding-top: 1rem;
+  }
+  .detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: .9rem; margin-bottom: 1rem; }
+  .dfield label { font-size: .6rem; letter-spacing: .14em; text-transform: uppercase; color: var(--faint); display: block; margin-bottom: .25rem; }
+  .dfield p, .dfield a { font-size: .82rem; color: var(--white); line-height: 1.5; }
+  .dfield a { color: var(--gold); text-decoration: none; }
+  .detail-desc {
+    background: var(--surface); border: 1px solid var(--border-soft); border-radius: var(--radius-sm);
+    padding: .9rem; font-size: .82rem; color: var(--muted); line-height: 1.7; margin-bottom: 1rem;
+  }
+  .chip-row { display: flex; flex-wrap: wrap; gap: .4rem; margin-bottom: 1rem; }
+  .chip { font-size: .68rem; padding: .25rem .6rem; border-radius: 99px; border: 1px solid var(--border); color: var(--muted); }
+
+  @media (max-width: 640px) {
+    .form-grid { grid-template-columns: 1fr; }
+    .table-wrap { overflow-x: auto; }
+    table { min-width: 720px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-logo">نصرة الحق | مسيرة — لوحة التحكم</div>
+  <div class="topbar-right">
+    <span class="admin-id" id="adminIdLabel"></span>
+    <button class="btn-logout" id="logoutBtn">تسجيل الخروج</button>
+  </div>
+</div>
+
+<div class="tabs">
+  <button class="tab-btn active" data-tab="protests">الفعاليات</button>
+  <button class="tab-btn" data-tab="reports">البلاغات <span class="tab-badge" id="reportsPendingBadge" style="display:none;"></span></button>
+  <button class="tab-btn" data-tab="admins">المشرفون</button>
+</div>
+
+<div class="page">
+
+  <!-- ===================== PROTESTS TAB ===================== -->
+  <section class="page-section active" id="tab-protests">
+    <div class="toolbar">
+      <div class="field">
+        <label>الحالة العامة</label>
+        <select id="pf_isApproved">
+          <option value="">الكل</option>
+          <option value="false">بانتظار الموافقة</option>
+          <option value="true">معتمدة</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>حالة الفعالية</label>
+        <select id="pf_status">
+          <option value="">الكل</option>
+          <option value="scheduled">مجدولة</option>
+          <option value="ongoing">جارية</option>
+          <option value="ended">منتهية</option>
+          <option value="cancelled">ملغاة</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>نوع الفعالية</label>
+        <select id="pf_protestType">
+          <option value="">الكل</option>
+          <option value="march">مسيرة</option>
+          <option value="rally">تجمع</option>
+          <option value="sit-in">اعتصام</option>
+          <option value="vigil">وقفة</option>
+          <option value="digital-campaign">حملة رقمية</option>
+          <option value="academic-boycott">مقاطعة أكاديمية</option>
+          <option value="other">أخرى</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>نوع المنظم</label>
+        <select id="pf_organiserType">
+          <option value="">الكل</option>
+          <option value="ngo">منظمة غير حكومية</option>
+          <option value="student-group">مجموعة طلابية</option>
+          <option value="union">نقابة</option>
+          <option value="informal-coalition">تحالف غير رسمي</option>
+          <option value="political-party">حزب سياسي</option>
+          <option value="religious-body">هيئة دينية</option>
+          <option value="other">أخرى</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>مستوى التوثيق</label>
+        <select id="pf_verification">
+          <option value="">الكل</option>
+          <option value="unverified">غير موثق</option>
+          <option value="community-verified">موثق من المجتمع</option>
+          <option value="official-source">مصدر رسمي</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>بحث</label>
+        <input type="text" id="pf_search" placeholder="عنوان، مدينة، منظم…" />
+      </div>
+      <div class="spacer"></div>
+      <button class="btn btn-ghost btn-sm" id="pf_refresh">تحديث</button>
+      <button class="btn btn-gold" id="pf_newBtn">+ فعالية جديدة</button>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>العنوان</th><th>المكان</th><th>التاريخ</th><th>الحالة</th>
+            <th>التوثيق</th><th>الاعتماد</th><th>المنظم</th><th>إجراءات</th>
+          </tr>
+        </thead>
+        <tbody id="protestsTbody">
+          <tr><td colspan="8"><div class="loading-state"><div class="spin"></div>جارٍ التحميل…</div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ===================== REPORTS TAB ===================== -->
+  <section class="page-section" id="tab-reports">
+    <div class="toolbar">
+      <div class="field">
+        <label>حالة البلاغ</label>
+        <select id="rf_status">
+          <option value="">الكل</option>
+          <option value="pending">قيد الانتظار</option>
+          <option value="reviewed">تمت المراجعة</option>
+          <option value="resolved">تم الحل</option>
+        </select>
+      </div>
+      <div class="spacer"></div>
+      <button class="btn btn-ghost btn-sm" id="rf_refresh">تحديث</button>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>الفعالية</th><th>الرسالة</th><th>البريد الإلكتروني</th><th>الحالة</th><th>تاريخ الإرسال</th><th>إجراءات</th></tr>
+        </thead>
+        <tbody id="reportsTbody">
+          <tr><td colspan="6"><div class="loading-state"><div class="spin"></div>جارٍ التحميل…</div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ===================== ADMINS TAB ===================== -->
+  <section class="page-section" id="tab-admins">
+    <div class="toolbar">
+      <div class="spacer"></div>
+      <button class="btn btn-ghost btn-sm" id="af_refresh">تحديث</button>
+      <button class="btn btn-gold" id="af_newBtn">+ مشرف جديد</button>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>اسم المستخدم</th><th>تاريخ الإنشاء</th><th>إجراءات</th></tr></thead>
+        <tbody id="adminsTbody">
+          <tr><td colspan="3"><div class="loading-state"><div class="spin"></div>جارٍ التحميل…</div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+</div>
+
+<!-- ===================== MODALS ===================== -->
+
+<!-- Protest create/edit modal -->
+<div class="modal-overlay" id="protestModal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3 id="protestModalTitle">فعالية جديدة</h3>
+      <button class="modal-close" id="protestModalClose">✕</button>
+    </div>
+    <div class="modal-error-banner" id="protestModalError"></div>
+    <form id="protestForm" novalidate>
+      <div class="form-grid">
+        <div class="form-group full">
+          <label>العنوان *</label>
+          <input type="text" id="p_title" maxlength="255" required />
+          <div class="field-error" id="err_p_title"></div>
+        </div>
+        <div class="form-group full">
+          <label>الوصف</label>
+          <textarea id="p_description" maxlength="1024"></textarea>
+        </div>
+        <div class="form-group">
+          <label>تاريخ ووقت البدء *</label>
+          <input type="datetime-local" id="p_start" required />
+          <div class="field-error" id="err_p_start"></div>
+        </div>
+        <div class="form-group">
+          <label>تاريخ ووقت الانتهاء المتوقع</label>
+          <input type="datetime-local" id="p_end" />
+          <div class="field-error" id="err_p_end"></div>
+        </div>
+        <div class="form-group">
+          <label>المنطقة الزمنية *</label>
+          <input type="text" id="p_timezone" placeholder="Africa/Casablanca" required />
+        </div>
+        <div class="form-group">
+          <label>التكرار</label>
+          <select id="p_recurrence">
+            <option value="none">لا يتكرر</option>
+            <option value="daily">يومي</option>
+            <option value="weekly">أسبوعي</option>
+            <option value="monday">كل اثنين</option>
+            <option value="tuesday">كل ثلاثاء</option>
+            <option value="wednesday">كل أربعاء</option>
+            <option value="thursday">كل خميس</option>
+            <option value="friday">كل جمعة</option>
+            <option value="saturday">كل سبت</option>
+            <option value="sunday">كل أحد</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>المكان (اسم القاعة/الساحة)</label>
+          <input type="text" id="p_venue" maxlength="255" />
+        </div>
+        <div class="form-group">
+          <label>العنوان التفصيلي</label>
+          <input type="text" id="p_streetAddress" maxlength="255" />
+        </div>
+        <div class="form-group">
+          <label>المدينة *</label>
+          <input type="text" id="p_city" maxlength="100" required />
+        </div>
+        <div class="form-group">
+          <label>الدولة *</label>
+          <input type="text" id="p_country" maxlength="100" required />
+        </div>
+        <div class="form-group">
+          <label>خط العرض (Latitude)</label>
+          <input type="text" id="p_latitude" placeholder="33.573110" />
+          <div class="field-error" id="err_p_latitude"></div>
+        </div>
+        <div class="form-group">
+          <label>خط الطول (Longitude)</label>
+          <input type="text" id="p_longitude" placeholder="-7.589843" />
+          <div class="field-error" id="err_p_longitude"></div>
+        </div>
+        <div class="form-group">
+          <label>اسم المنظم *</label>
+          <input type="text" id="p_organiserName" maxlength="255" required />
+        </div>
+        <div class="form-group">
+          <label>نوع المنظم *</label>
+          <select id="p_organiserType" required>
+            <option value="ngo">منظمة غير حكومية</option>
+            <option value="student-group">مجموعة طلابية</option>
+            <option value="union">نقابة</option>
+            <option value="informal-coalition">تحالف غير رسمي</option>
+            <option value="political-party">حزب سياسي</option>
+            <option value="religious-body">هيئة دينية</option>
+            <option value="other">أخرى</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>نوع الفعالية</label>
+          <select id="p_protestType">
+            <option value="march">مسيرة</option>
+            <option value="rally">تجمع</option>
+            <option value="sit-in">اعتصام</option>
+            <option value="vigil">وقفة</option>
+            <option value="digital-campaign">حملة رقمية</option>
+            <option value="academic-boycott">مقاطعة أكاديمية</option>
+            <option value="other">أخرى</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>العدد المتوقع للمشاركين</label>
+          <input type="number" id="p_estimatedTurnout" min="0" />
+        </div>
+      </div>
+
+      <!-- Fields required only on update -->
+      <div id="updateOnlyFields" style="display:none;">
+        <div class="section-label">إعدادات الاعتماد (عند التعديل)</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>الحالة *</label>
+            <select id="p_status">
+              <option value="scheduled">مجدولة</option>
+              <option value="ongoing">جارية</option>
+              <option value="ended">منتهية</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>مستوى التوثيق *</label>
+            <select id="p_verificationLevel">
+              <option value="unverified">غير موثق</option>
+              <option value="community-verified">موثق من المجتمع</option>
+              <option value="official-source">مصدر رسمي</option>
+            </select>
+          </div>
+          <div class="form-group full">
+            <label>ملاحظات التعديل *</label>
+            <textarea id="p_notesOnChanges" maxlength="1024" minlength="2" placeholder="سبب هذا التعديل…"></textarea>
+            <div class="field-error" id="err_p_notes"></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="repeatableFields">
+        <div class="section-label">مواضيع / وسوم <span class="cell-muted">(يمكن إضافتها أو حذفها هنا)</span></div>
+        <div id="themesRepeat"></div>
+        <button type="button" class="btn btn-ghost btn-sm" id="addThemeBtn">+ إضافة موضوع</button>
+
+        <div class="section-label">الفئة المستهدفة</div>
+        <div id="audienceRepeat"></div>
+        <button type="button" class="btn btn-ghost btn-sm" id="addAudienceBtn">+ إضافة فئة</button>
+
+        <div class="section-label">روابط</div>
+        <div id="linksRepeat"></div>
+        <button type="button" class="btn btn-ghost btn-sm" id="addLinkBtn">+ إضافة رابط</button>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" id="protestCancelBtn">إلغاء</button>
+        <button type="submit" class="btn btn-gold" id="protestSubmitBtn">حفظ</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Protest detail (read-only, admin fields) modal -->
+<div class="modal-overlay" id="protestDetailModal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3>تفاصيل الفعالية</h3>
+      <button class="modal-close" id="protestDetailClose">✕</button>
+    </div>
+    <div id="protestDetailBody"></div>
+  </div>
+</div>
+
+<!-- Cancel protest modal -->
+<div class="modal-overlay" id="cancelModal">
+  <div class="modal-box narrow">
+    <div class="modal-head">
+      <h3>إلغاء الفعالية</h3>
+      <button class="modal-close" id="cancelModalClose">✕</button>
+    </div>
+    <div class="modal-error-banner" id="cancelModalError"></div>
+    <form id="cancelForm" novalidate>
+      <div class="form-group">
+        <label>سبب الإلغاء *</label>
+        <textarea id="c_reason" maxlength="255" minlength="2" required></textarea>
+        <div class="field-error" id="err_c_reason"></div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" id="cancelModalCancelBtn">تراجع</button>
+        <button type="submit" class="btn btn-danger">تأكيد الإلغاء</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Report detail modal -->
+<div class="modal-overlay" id="reportDetailModal">
+  <div class="modal-box narrow">
+    <div class="modal-head">
+      <h3>تفاصيل البلاغ</h3>
+      <button class="modal-close" id="reportDetailClose">✕</button>
+    </div>
+    <div id="reportDetailBody"></div>
+  </div>
+</div>
+
+<!-- Admin create/edit modal -->
+<div class="modal-overlay" id="adminModal">
+  <div class="modal-box narrow">
+    <div class="modal-head">
+      <h3 id="adminModalTitle">مشرف جديد</h3>
+      <button class="modal-close" id="adminModalClose">✕</button>
+    </div>
+    <div class="modal-error-banner" id="adminModalError"></div>
+    <form id="adminForm" novalidate>
+      <div class="form-group">
+        <label>اسم المستخدم *</label>
+        <input type="text" id="a_username" minlength="4" maxlength="100" required />
+        <div class="field-error" id="err_a_username"></div>
+      </div>
+      <div class="form-group">
+        <label>كلمة المرور *</label>
+        <input type="password" id="a_password" minlength="8" maxlength="100" required />
+        <div class="field-error" id="err_a_password"></div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" id="adminCancelBtn">إلغاء</button>
+        <button type="submit" class="btn btn-gold" id="adminSubmitBtn">حفظ</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="toastWrap"></div>
+
+<script>
+/* ============================================================
+   CONFIG
+   ============================================================ */
+const API_BASE = "http://massira.up.railway.app";
+const EP = {
+  login:            `${API_BASE}/v1/api/auth/login`,
+  protestsAdmin:    `${API_BASE}/v1/api/admin/protest/`,
+  protest:          id => `${API_BASE}/v1/api/admin/protest/${id}`,
+  protestApprove:   id => `${API_BASE}/v1/api/admin/protest/${id}/approve`,
+  protestCancel:    id => `${API_BASE}/v1/api/admin/protest/${id}/cancel`,
+  reports:          `${API_BASE}/v1/api/admin/report/`,
+  report:           id => `${API_BASE}/v1/api/admin/report/${id}`,
+  admins:           `${API_BASE}/v1/api/admin/admin/`,
+  admin:            id => `${API_BASE}/v1/api/admin/admin/${id}`,
+};
+
+const LABELS = {
+  status: { scheduled:'مجدولة', ongoing:'جارية', ended:'منتهية', cancelled:'ملغاة' },
+  verification: { unverified:'غير موثق', 'community-verified':'موثق من المجتمع', 'official-source':'مصدر رسمي' },
+  organiserType: { ngo:'منظمة غير حكومية', 'student-group':'مجموعة طلابية', union:'نقابة',
+    'informal-coalition':'تحالف غير رسمي', 'political-party':'حزب سياسي', 'religious-body':'هيئة دينية', other:'أخرى' },
+  protestType: { march:'مسيرة', rally:'تجمع', 'sit-in':'اعتصام', vigil:'وقفة',
+    'digital-campaign':'حملة رقمية', 'academic-boycott':'مقاطعة أكاديمية', other:'أخرى' },
+  recurrence: { none:'لا يتكرر', daily:'يومي', weekly:'أسبوعي', monday:'كل اثنين', tuesday:'كل ثلاثاء',
+    wednesday:'كل أربعاء', thursday:'كل خميس', friday:'كل جمعة', saturday:'كل سبت', sunday:'كل أحد' },
+  reportStatus: { pending:'قيد الانتظار', reviewed:'تمت المراجعة', resolved:'تم الحل' },
+};
+
+/* ============================================================
+   AUTH GUARD + API HELPER
+   ============================================================ */
+const token = localStorage.getItem('admin_token');
+if (!token) {
+  window.location.href = 'login.html';
+}
+
+function decodeAdminId(t) {
+  try {
+    const payload = JSON.parse(atob(t.split('.')[1]));
+    return payload.sub;
+  } catch { return null; }
+}
+document.getElementById('adminIdLabel').textContent = 'مشرف #' + (decodeAdminId(token) || '');
+
+document.getElementById('logoutBtn').addEventListener('click', () => {
+  localStorage.removeItem('admin_token');
+  window.location.href = 'login.html';
+});
+
+async function api(path, options = {}) {
+  const res = await fetch(path, {
+    ...options,
+    headers: {
+      ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+      'Authorization': `Bearer ${localStorage.getItem('admin_token')}`,
+      ...(options.headers || {})
+    }
+  });
+
+  if (res.status === 401) {
+    localStorage.removeItem('admin_token');
+    window.location.href = 'login.html';
+    throw new Error('unauthorized');
+  }
+
+  let data = null;
+  const text = await res.text();
+  if (text) { try { data = JSON.parse(text); } catch { data = null; } }
+
+  if (!res.ok) {
+    const err = new Error((data && data.detail) ? (Array.isArray(data.detail) ? 'خطأ في التحقق من البيانات' : data.detail) : 'حدث خطأ غير متوقع');
+    err.status = res.status;
+    err.raw = data;
+    throw err;
+  }
+  return data;
+}
+
+/* ============================================================
+   TOAST
+   ============================================================ */
+function toast(msg, type = 'success') {
+  const wrap = document.getElementById('toastWrap');
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = msg;
+  wrap.appendChild(el);
+  setTimeout(() => el.remove(), 4000);
+}
+
+/* ============================================================
+   TABS
+   ============================================================ */
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.page-section').forEach(s => s.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+    if (btn.dataset.tab === 'reports') loadReports();
+    if (btn.dataset.tab === 'admins') loadAdmins();
+  });
+});
+
+/* ============================================================
+   GENERIC MODAL HELPERS
+   ============================================================ */
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(ov => {
+  ov.addEventListener('click', e => { if (e.target === ov) ov.classList.remove('open'); });
+});
+
+/* ============================================================
+   PROTESTS TAB
+   ============================================================ */
+let allProtests = [];
+let editingProtestId = null;
+let cancellingProtestId = null;
+
+function badge(cls, text) { return `<span class="badge ${cls}">${text}</span>`; }
+
+function fmtDate(dt) {
+  if (!dt) return '—';
+  const d = new Date(dt);
+  if (isNaN(d)) return dt;
+  return d.toLocaleDateString('ar-EG-u-nu-latn', { day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
+}
+
+async function loadProtests() {
+  const tbody = document.getElementById('protestsTbody');
+  tbody.innerHTML = `<tr><td colspan="8"><div class="loading-state"><div class="spin"></div>جارٍ التحميل…</div></td></tr>`;
+
+  const params = new URLSearchParams();
+  const isApproved = document.getElementById('pf_isApproved').value;
+  const status = document.getElementById('pf_status').value;
+  const protestType = document.getElementById('pf_protestType').value;
+  const organiserType = document.getElementById('pf_organiserType').value;
+  const verification = document.getElementById('pf_verification').value;
+  if (isApproved) params.set('is_approved', isApproved);
+  if (status) params.set('state', status);
+  if (protestType) params.set('protest_type', protestType);
+  if (organiserType) params.set('organiser_type', organiserType);
+  if (verification) params.set('verification_level', verification);
+
+  try {
+    allProtests = await api(`${EP.protestsAdmin}?${params.toString()}`);
+    renderProtests();
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state">تعذّر تحميل الفعاليات: ${err.message}</div></td></tr>`;
+  }
+}
+
+function renderProtests() {
+  const q = document.getElementById('pf_search').value.trim().toLowerCase();
+  const rows = allProtests.filter(p => {
+    if (!q) return true;
+    return `${p.title} ${p.city} ${p.country} ${p.organiser_name}`.toLowerCase().includes(q);
+  });
+
+  const tbody = document.getElementById('protestsTbody');
+  if (rows.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state">لا توجد فعاليات مطابقة.</div></td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = rows.map(p => `
+    <tr>
+      <td class="cell-title">${escapeHtml(p.title)}</td>
+      <td class="cell-muted">${escapeHtml(p.city)}, ${escapeHtml(p.country)}</td>
+      <td class="cell-muted">${fmtDate(p.start_date_time)}</td>
+      <td>${badge('status-' + p.status, LABELS.status[p.status] || p.status)}</td>
+      <td>${badge('verification-' + p.verification_level, LABELS.verification[p.verification_level] || p.verification_level)}</td>
+      <td>${p.is_approved ? badge('approved-yes', 'معتمدة') : badge('approved-no', 'بانتظار')}</td>
+      <td class="cell-muted">${escapeHtml(p.organiser_name)}</td>
+      <td>
+        <div class="row-actions">
+          <button class="btn btn-ghost btn-sm" onclick="viewProtest(${p.id})">عرض</button>
+          <button class="btn btn-ghost btn-sm" onclick="openEditProtest(${p.id})">تعديل</button>
+          ${!p.is_approved ? `<button class="btn btn-gold btn-sm" onclick="approveProtest(${p.id})">اعتماد</button>` : ''}
+          ${p.status !== 'cancelled' ? `<button class="btn btn-danger btn-sm" onclick="openCancelProtest(${p.id})">إلغاء</button>` : ''}
+          <button class="btn btn-danger btn-sm" onclick="deleteProtest(${p.id})">حذف</button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function escapeHtml(s) {
+  if (s === null || s === undefined) return '';
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+['pf_isApproved','pf_status','pf_protestType','pf_organiserType','pf_verification'].forEach(id => {
+  document.getElementById(id).addEventListener('change', loadProtests);
+});
+document.getElementById('pf_search').addEventListener('input', renderProtests);
+document.getElementById('pf_refresh').addEventListener('click', loadProtests);
+
+/* ---- View detail ---- */
+window.viewProtest = function (id) {
+  const p = allProtests.find(x => x.id === id);
+  if (!p) return;
+  const body = document.getElementById('protestDetailBody');
+  body.innerHTML = `
+    <div class="chip-row">
+      ${badge('status-' + p.status, LABELS.status[p.status] || p.status)}
+      ${badge('verification-' + p.verification_level, LABELS.verification[p.verification_level] || p.verification_level)}
+      ${p.is_approved ? badge('approved-yes','معتمدة') : badge('approved-no','بانتظار الموافقة')}
+    </div>
+    ${p.description ? `<div class="detail-desc">${escapeHtml(p.description)}</div>` : ''}
+    <div class="detail-grid">
+      <div class="dfield"><label>البداية</label><p>${fmtDate(p.start_date_time)}</p></div>
+      <div class="dfield"><label>النهاية المتوقعة</label><p>${fmtDate(p.expected_end_date_time)}</p></div>
+      <div class="dfield"><label>التكرار</label><p>${LABELS.recurrence[p.recurrence] || p.recurrence}</p></div>
+      <div class="dfield"><label>المكان</label><p>${escapeHtml(p.venue) || '—'}</p></div>
+      <div class="dfield"><label>العنوان</label><p>${escapeHtml(p.street_address) || '—'}</p></div>
+      <div class="dfield"><label>المدينة / الدولة</label><p>${escapeHtml(p.city)}, ${escapeHtml(p.country)}</p></div>
+      <div class="dfield"><label>الإحداثيات</label><p>${p.latitude || '—'}, ${p.longitude || '—'}</p></div>
+      <div class="dfield"><label>المنظم</label><p>${escapeHtml(p.organiser_name)} (${LABELS.organiserType[p.organiser_type] || p.organiser_type})</p></div>
+      <div class="dfield"><label>نوع الفعالية</label><p>${LABELS.protestType[p.protest_type] || p.protest_type}</p></div>
+      <div class="dfield"><label>العدد المتوقع</label><p>${p.estimated_turnout ?? '—'}</p></div>
+      <div class="dfield"><label>أُنشئت بواسطة</label><p>${escapeHtml(p.created_by) || '—'}</p></div>
+      <div class="dfield"><label>تاريخ الإنشاء</label><p>${fmtDate(p.created_date)}</p></div>
+      <div class="dfield"><label>آخر تحديث</label><p>${fmtDate(p.last_updated)}</p></div>
+      <div class="dfield"><label>اعتُمدت بواسطة</label><p>${escapeHtml(p.approved_by) || '—'}</p></div>
+      ${p.cancelled_at ? `<div class="dfield"><label>تاريخ الإلغاء</label><p>${fmtDate(p.cancelled_at)}</p></div>` : ''}
+      ${p.cancellation_reason ? `<div class="dfield"><label>سبب الإلغاء</label><p>${escapeHtml(p.cancellation_reason)}</p></div>` : ''}
+      ${p.notes_on_changes ? `<div class="dfield"><label>ملاحظات آخر تعديل</label><p>${escapeHtml(p.notes_on_changes)}</p></div>` : ''}
+    </div>
+    ${p.hashtags && p.hashtags.length ? `<div class="section-label">مواضيع</div><div class="chip-row">${p.hashtags.map(h=>`<span class="chip">${escapeHtml(h.content)}</span>`).join('')}</div>` : ''}
+    ${p.audience && p.audience.length ? `<div class="section-label">الفئة المستهدفة</div><div class="chip-row">${p.audience.map(a=>`<span class="chip">${escapeHtml(a.content)}</span>`).join('')}</div>` : ''}
+    ${p.links && p.links.length ? `<div class="section-label">روابط</div><div class="chip-row">${p.links.map(l=>`<a class="chip" href="${escapeHtml(l.url)}" target="_blank" rel="noopener">${escapeHtml(l.name)}</a>`).join('')}</div>` : ''}
+  `;
+  openModal('protestDetailModal');
+};
+document.getElementById('protestDetailClose').addEventListener('click', () => closeModal('protestDetailModal'));
+
+/* ---- Create / edit form ---- */
+const protestForm = document.getElementById('protestForm');
+const protestModalError = document.getElementById('protestModalError');
+
+function toDatetimeLocal(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d)) return '';
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function makeRepeatRow(containerId, placeholder, value = '') {
+  const container = document.getElementById(containerId);
+  const row = document.createElement('div');
+  row.className = 'repeat-row';
+  row.innerHTML = `<input type="text" maxlength="255" placeholder="${placeholder}" value="${escapeHtml(value)}"/>
+    <button type="button" class="btn btn-danger btn-sm">✕</button>`;
+  row.querySelector('button').addEventListener('click', () => row.remove());
+  container.appendChild(row);
+}
+
+function makeLinkRow(nameVal = '', urlVal = '') {
+  const container = document.getElementById('linksRepeat');
+  const row = document.createElement('div');
+  row.className = 'repeat-row';
+  row.innerHTML = `<input type="text" maxlength="255" placeholder="اسم الرابط" value="${escapeHtml(nameVal)}"/>
+    <input type="text" maxlength="512" placeholder="https://..." value="${escapeHtml(urlVal)}"/>
+    <button type="button" class="btn btn-danger btn-sm">✕</button>`;
+  row.querySelector('button').addEventListener('click', () => row.remove());
+  container.appendChild(row);
+}
+
+document.getElementById('addThemeBtn').addEventListener('click', () => makeRepeatRow('themesRepeat', 'اسم الموضوع'));
+document.getElementById('addAudienceBtn').addEventListener('click', () => makeRepeatRow('audienceRepeat', 'الفئة المستهدفة'));
+document.getElementById('addLinkBtn').addEventListener('click', () => makeLinkRow());
+
+function resetProtestForm() {
+  protestForm.reset();
+  document.getElementById('themesRepeat').innerHTML = '';
+  document.getElementById('audienceRepeat').innerHTML = '';
+  document.getElementById('linksRepeat').innerHTML = '';
+  protestModalError.classList.remove('show');
+  document.querySelectorAll('#protestForm .invalid').forEach(el => el.classList.remove('invalid'));
+  document.querySelectorAll('#protestForm .field-error').forEach(el => el.classList.remove('show'));
+}
+
+document.getElementById('pf_newBtn').addEventListener('click', () => {
+  editingProtestId = null;
+  resetProtestForm();
+  document.getElementById('protestModalTitle').textContent = 'فعالية جديدة';
+  document.getElementById('updateOnlyFields').style.display = 'none';
+  openModal('protestModal');
+});
+
+window.openEditProtest = function (id) {
+  const p = allProtests.find(x => x.id === id);
+  if (!p) return;
+  editingProtestId = id;
+  resetProtestForm();
+  document.getElementById('protestModalTitle').textContent = 'تعديل الفعالية';
+  document.getElementById('updateOnlyFields').style.display = 'block';
+
+  document.getElementById('p_title').value = p.title || '';
+  document.getElementById('p_description').value = p.description || '';
+  document.getElementById('p_start').value = toDatetimeLocal(p.start_date_time);
+  document.getElementById('p_end').value = toDatetimeLocal(p.expected_end_date_time);
+  document.getElementById('p_timezone').value = p.time_zone || '';
+  document.getElementById('p_recurrence').value = p.recurrence || 'none';
+  document.getElementById('p_venue').value = p.venue || '';
+  document.getElementById('p_streetAddress').value = p.street_address || '';
+  document.getElementById('p_city').value = p.city || '';
+  document.getElementById('p_country').value = p.country || '';
+  document.getElementById('p_latitude').value = p.latitude || '';
+  document.getElementById('p_longitude').value = p.longitude || '';
+  document.getElementById('p_organiserName').value = p.organiser_name || '';
+  document.getElementById('p_organiserType').value = p.organiser_type || 'ngo';
+  document.getElementById('p_protestType').value = p.protest_type || 'other';
+  document.getElementById('p_estimatedTurnout').value = p.estimated_turnout ?? '';
+  document.getElementById('p_status').value = (p.status === 'cancelled') ? 'scheduled' : p.status;
+  document.getElementById('p_verificationLevel').value = p.verification_level || 'unverified';
+  document.getElementById('p_notesOnChanges').value = p.notes_on_changes || '';
+
+  (p.hashtags || []).forEach(h => makeRepeatRow('themesRepeat', 'اسم الموضوع', h.content));
+  (p.audience || []).forEach(a => makeRepeatRow('audienceRepeat', 'الفئة المستهدفة', a.content));
+  (p.links || []).forEach(l => makeLinkRow(l.name, l.url));
+
+  openModal('protestModal');
+};
+
+document.getElementById('protestModalClose').addEventListener('click', () => closeModal('protestModal'));
+document.getElementById('protestCancelBtn').addEventListener('click', () => closeModal('protestModal'));
+
+function clearFieldError(inputId, errorId) {
+  document.getElementById(inputId).classList.remove('invalid');
+  document.getElementById(errorId).classList.remove('show');
+}
+function setFieldError(inputId, errorId, msg) {
+  document.getElementById(inputId).classList.add('invalid');
+  const el = document.getElementById(errorId);
+  el.textContent = msg;
+  el.classList.add('show');
+}
+
+protestForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  protestModalError.classList.remove('show');
+  [
+    ['p_title', 'err_p_title'],
+    ['p_start', 'err_p_start'],
+    ['p_end', 'err_p_end'],
+    ['p_latitude', 'err_p_latitude'],
+    ['p_longitude', 'err_p_longitude'],
+    ['p_notesOnChanges', 'err_p_notes']
+  ].forEach(([inputId, errorId]) => clearFieldError(inputId, errorId));
+
+  const title = document.getElementById('p_title').value.trim();
+  const start = document.getElementById('p_start').value;
+  const end = document.getElementById('p_end').value;
+
+  let valid = true;
+  if (title.length < 4) { setFieldError('p_title','err_p_title','العنوان يجب أن يكون 4 أحرف على الأقل.'); valid = false; }
+  if (!start) { setFieldError('p_start','err_p_start','تاريخ البدء مطلوب.'); valid = false; }
+  if (end && start && new Date(end) <= new Date(start)) { setFieldError('p_end','err_p_end','يجب أن يكون تاريخ الانتهاء بعد تاريخ البدء.'); valid = false; }
+
+  const isEditing = editingProtestId !== null;
+  let notes = '';
+  if (isEditing) {
+    notes = document.getElementById('p_notesOnChanges').value.trim();
+    if (notes.length < 2) { setFieldError('p_notesOnChanges','err_p_notes','يرجى كتابة ملاحظة توضح سبب التعديل.'); valid = false; }
+  }
+
+  if (!valid) return;
+
+  const payload = {
+    title,
+    description: document.getElementById('p_description').value.trim() || null,
+    start_date_time: new Date(start).toISOString(),
+    expected_end_date_time: end ? new Date(end).toISOString() : null,
+    time_zone: document.getElementById('p_timezone').value.trim(),
+    recurrence: document.getElementById('p_recurrence').value,
+    venue: document.getElementById('p_venue').value.trim() || null,
+    street_address: document.getElementById('p_streetAddress').value.trim() || null,
+    city: document.getElementById('p_city').value.trim(),
+    country: document.getElementById('p_country').value.trim(),
+    latitude: document.getElementById('p_latitude').value.trim() || null,
+    longitude: document.getElementById('p_longitude').value.trim() || null,
+    organiser_name: document.getElementById('p_organiserName').value.trim(),
+    organiser_type: document.getElementById('p_organiserType').value,
+    protest_type: document.getElementById('p_protestType').value,
+    estimated_turnout: document.getElementById('p_estimatedTurnout').value ? parseInt(document.getElementById('p_estimatedTurnout').value, 10) : null,
+  };
+
+  payload.themes = [...document.querySelectorAll('#themesRepeat .repeat-row input')].map(i => i.value.trim()).filter(Boolean).map(content => ({ content }));
+  payload.target_audience = [...document.querySelectorAll('#audienceRepeat .repeat-row input')].map(i => i.value.trim()).filter(Boolean).map(content => ({ content }));
+  payload.links = [...document.querySelectorAll('#linksRepeat .repeat-row')].map(row => {
+    const inputs = row.querySelectorAll('input');
+    return { name: inputs[0].value.trim(), url: inputs[1].value.trim() };
+  }).filter(l => l.name && l.url);
+
+  if (isEditing) {
+    payload.status = document.getElementById('p_status').value;
+    payload.verification_level = document.getElementById('p_verificationLevel').value;
+    payload.notes_on_changes = notes;
+  }
+
+  const submitBtn = document.getElementById('protestSubmitBtn');
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'جارٍ الحفظ…';
+
+  try {
+    if (isEditing) {
+      await api(EP.protest(editingProtestId), { method: 'PUT', body: JSON.stringify(payload) });
+      toast('تم تحديث الفعالية بنجاح.');
+    } else {
+      await api(EP.protestsAdmin, { method: 'POST', body: JSON.stringify(payload) });
+      toast('تم إنشاء الفعالية بنجاح.');
+    }
+    closeModal('protestModal');
+    loadProtests();
+  } catch (err) {
+    protestModalError.textContent = describeError(err);
+    protestModalError.classList.add('show');
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'حفظ';
+  }
+});
+
+function describeError(err) {
+  if (err.raw && Array.isArray(err.raw.detail)) {
+    return err.raw.detail.map(d => d.msg).join(' — ');
+  }
+  return err.message || 'حدث خطأ غير متوقع.';
+}
+
+/* ---- Approve / cancel / delete ---- */
+window.approveProtest = async function (id) {
+  try {
+    await api(EP.protestApprove(id), { method: 'PATCH' });
+    toast('تم اعتماد الفعالية.');
+    loadProtests();
+  } catch (err) {
+    toast(describeError(err), 'error');
+  }
+};
+
+document.getElementById('cancelForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const reasonInput = document.getElementById('c_reason');
+  const reason = reasonInput.value.trim();
+  clearFieldError('c_reason','err_c_reason');
+  document.getElementById('cancelModalError').classList.remove('show');
+  if (reason.length < 2) { setFieldError('c_reason','err_c_reason','يرجى كتابة سبب الإلغاء.'); return; }
+
+  try {
+    await api(EP.protestCancel(cancellingProtestId), { method: 'PATCH', body: JSON.stringify({ cancellation_reason: reason }) });
+    toast('تم إلغاء الفعالية.');
+    closeModal('cancelModal');
+    loadProtests();
+  } catch (err) {
+    document.getElementById('cancelModalError').textContent = describeError(err);
+    document.getElementById('cancelModalError').classList.add('show');
+  }
+});
+
+window.openCancelProtest = function (id) {
+  cancellingProtestId = id;
+  document.getElementById('cancelForm').reset();
+  document.getElementById('cancelModalError').classList.remove('show');
+  clearFieldError('c_reason','err_c_reason');
+  openModal('cancelModal');
+};
+document.getElementById('cancelModalClose').addEventListener('click', () => closeModal('cancelModal'));
+document.getElementById('cancelModalCancelBtn').addEventListener('click', () => closeModal('cancelModal'));
+
+window.deleteProtest = async function (id) {
+  if (!confirm('هل أنت متأكد من حذف هذه الفعالية؟ لا يمكن التراجع عن هذا الإجراء.')) return;
+  try {
+    await api(EP.protest(id), { method: 'DELETE' });
+    toast('تم حذف الفعالية.');
+    loadProtests();
+  } catch (err) {
+    toast(describeError(err), 'error');
+  }
+};
+
+/* ============================================================
+   REPORTS TAB
+   ============================================================ */
+let allReports = [];
+
+async function loadReports() {
+  const tbody = document.getElementById('reportsTbody');
+  tbody.innerHTML = `<tr><td colspan="6"><div class="loading-state"><div class="spin"></div>جارٍ التحميل…</div></td></tr>`;
+  const params = new URLSearchParams();
+  const status = document.getElementById('rf_status').value;
+  if (status) params.set('state', status);
+
+  try {
+    allReports = await api(`${EP.reports}?${params.toString()}`);
+    renderReports();
+    const pending = allReports.filter(r => r.status === 'pending').length;
+    const badgeEl = document.getElementById('reportsPendingBadge');
+    if (pending > 0) { badgeEl.style.display = 'inline-block'; badgeEl.textContent = pending; }
+    else badgeEl.style.display = 'none';
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state">تعذّر تحميل البلاغات: ${err.message}</div></td></tr>`;
+  }
+}
+
+function renderReports() {
+  const tbody = document.getElementById('reportsTbody');
+  if (allReports.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state">لا توجد بلاغات.</div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = allReports.map(r => `
+    <tr>
+      <td class="cell-title">${escapeHtml(r.protest_title) || `#${r.protest_id}`}</td>
+      <td class="cell-muted" style="max-width:260px;">${escapeHtml(r.message.slice(0, 80))}${r.message.length > 80 ? '…' : ''}</td>
+      <td class="cell-muted">${escapeHtml(r.email)}</td>
+      <td>${badge('report-' + r.status, LABELS.reportStatus[r.status] || r.status)}</td>
+      <td class="cell-muted">${fmtDate(r.created_at)}</td>
+      <td>
+        <div class="row-actions">
+          <button class="btn btn-ghost btn-sm" onclick="viewReport(${r.id})">عرض</button>
+          ${r.status !== 'resolved' ? `<button class="btn btn-gold btn-sm" onclick="resolveReport(${r.id})">حل</button>` : ''}
+          <button class="btn btn-danger btn-sm" onclick="deleteReport(${r.id})">حذف</button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+document.getElementById('rf_status').addEventListener('change', loadReports);
+document.getElementById('rf_refresh').addEventListener('click', loadReports);
+
+window.viewReport = function (id) {
+  const r = allReports.find(x => x.id === id);
+  if (!r) return;
+  document.getElementById('reportDetailBody').innerHTML = `
+    <div class="chip-row">${badge('report-' + r.status, LABELS.reportStatus[r.status] || r.status)}</div>
+    <div class="detail-grid">
+      <div class="dfield"><label>الفعالية</label><p>${escapeHtml(r.protest_title) || `#${r.protest_id}`}</p></div>
+      <div class="dfield"><label>البريد الإلكتروني</label><p>${escapeHtml(r.email)}</p></div>
+      <div class="dfield"><label>تاريخ الإرسال</label><p>${fmtDate(r.created_at)}</p></div>
+      <div class="dfield"><label>آخر تحديث</label><p>${fmtDate(r.updated_at)}</p></div>
+    </div>
+    <div class="detail-desc">${escapeHtml(r.message)}</div>
+  `;
+  openModal('reportDetailModal');
+};
+document.getElementById('reportDetailClose').addEventListener('click', () => closeModal('reportDetailModal'));
+
+window.resolveReport = async function (id) {
+  try {
+    await api(EP.report(id), { method: 'PATCH' });
+    toast('تم وضع علامة أن البلاغ قد حُلّ.');
+    loadReports();
+  } catch (err) {
+    toast(describeError(err), 'error');
+  }
+};
+
+window.deleteReport = async function (id) {
+  if (!confirm('هل أنت متأكد من حذف هذا البلاغ؟')) return;
+  try {
+    await api(EP.report(id), { method: 'DELETE' });
+    toast('تم حذف البلاغ.');
+    loadReports();
+  } catch (err) {
+    toast(describeError(err), 'error');
+  }
+};
+
+/* ============================================================
+   ADMINS TAB
+   ============================================================ */
+let allAdmins = [];
+let editingAdminId = null;
+
+async function loadAdmins() {
+  const tbody = document.getElementById('adminsTbody');
+  tbody.innerHTML = `<tr><td colspan="3"><div class="loading-state"><div class="spin"></div>جارٍ التحميل…</div></td></tr>`;
+  try {
+    allAdmins = await api(EP.admins);
+    renderAdmins();
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="3"><div class="empty-state">تعذّر تحميل قائمة المشرفين: ${err.message}</div></td></tr>`;
+  }
+}
+
+function renderAdmins() {
+  const tbody = document.getElementById('adminsTbody');
+  if (allAdmins.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="3"><div class="empty-state">لا يوجد مشرفون.</div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = allAdmins.map(a => `
+    <tr>
+      <td class="cell-title">${escapeHtml(a.username)}</td>
+      <td class="cell-muted">${fmtDate(a.created_at)}</td>
+      <td>
+        <div class="row-actions">
+          <button class="btn btn-ghost btn-sm" onclick="openEditAdmin(${a.id})">تعديل</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteAdmin(${a.id})">حذف</button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+document.getElementById('af_refresh').addEventListener('click', loadAdmins);
+
+function resetAdminForm() {
+  document.getElementById('adminForm').reset();
+  document.getElementById('adminModalError').classList.remove('show');
+  clearFieldError('a_username','err_a_username');
+  clearFieldError('a_password','err_a_password');
+}
+
+document.getElementById('af_newBtn').addEventListener('click', () => {
+  editingAdminId = null;
+  resetAdminForm();
+  document.getElementById('adminModalTitle').textContent = 'مشرف جديد';
+  openModal('adminModal');
+});
+
+window.openEditAdmin = function (id) {
+  const a = allAdmins.find(x => x.id === id);
+  if (!a) return;
+  editingAdminId = id;
+  resetAdminForm();
+  document.getElementById('adminModalTitle').textContent = 'تعديل بيانات المشرف';
+  document.getElementById('a_username').value = a.username;
+  openModal('adminModal');
+};
+
+document.getElementById('adminModalClose').addEventListener('click', () => closeModal('adminModal'));
+document.getElementById('adminCancelBtn').addEventListener('click', () => closeModal('adminModal'));
+
+document.getElementById('adminForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  document.getElementById('adminModalError').classList.remove('show');
+  clearFieldError('a_username','err_a_username');
+  clearFieldError('a_password','err_a_password');
+
+  const username = document.getElementById('a_username').value.trim();
+  const password = document.getElementById('a_password').value;
+
+  let valid = true;
+  if (username.length < 4) { setFieldError('a_username','err_a_username','4 أحرف على الأقل.'); valid = false; }
+  if (password.length < 8) { setFieldError('a_password','err_a_password','8 أحرف على الأقل.'); valid = false; }
+  if (!valid) return;
+
+  const submitBtn = document.getElementById('adminSubmitBtn');
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'جارٍ الحفظ…';
+
+  try {
+    if (editingAdminId !== null) {
+      await api(EP.admin(editingAdminId), { method: 'PUT', body: JSON.stringify({ username, password }) });
+      toast('تم تحديث بيانات المشرف.');
+    } else {
+      await api(EP.admins, { method: 'POST', body: JSON.stringify({ username, password }) });
+      toast('تم إنشاء المشرف بنجاح.');
+    }
+    closeModal('adminModal');
+    loadAdmins();
+  } catch (err) {
+    document.getElementById('adminModalError').textContent = describeError(err);
+    document.getElementById('adminModalError').classList.add('show');
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'حفظ';
+  }
+});
+
+window.deleteAdmin = async function (id) {
+  if (!confirm('هل أنت متأكد من حذف هذا المشرف؟')) return;
+  try {
+    await api(EP.admin(id), { method: 'DELETE' });
+    toast('تم حذف المشرف.');
+    loadAdmins();
+  } catch (err) {
+    toast(describeError(err), 'error');
+  }
+};
+
+/* ============================================================
+   INIT
+   ============================================================ */
+loadProtests();
+</script>
+</body>
+</html>
